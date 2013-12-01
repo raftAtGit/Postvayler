@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="src" path="samples"/>
+	<classpathentry kind="src" path="src"/>
+	<classpathentry kind="lib" path="lib/prevayler-core-2.6.jar"/>
+	<classpathentry kind="lib" path="lib/prevayler-factory-2.6.jar"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry kind="lib" path="lib/javassist-3.18.jar" sourcepath="lib/source/javassist-3.18-sources.jar.zip"/>
+	<classpathentry kind="output" path="bin"/>
+</classpath>
