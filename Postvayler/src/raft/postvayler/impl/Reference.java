@@ -18,7 +18,7 @@ class Reference implements Serializable {
 	Reference(IsPersistent persistent) {
 		this.id = persistent.__postvayler_getId();
 		if (id == null)
-			throw new NotPersistentException("object has no id, did you create this object before Postvayler is created?\n" + persistent);
+			throw new NotPersistentException("object has no id, did you create this object before Postvayler is created?\n" + Utils.identityCode(persistent));
 	}
 	
 	

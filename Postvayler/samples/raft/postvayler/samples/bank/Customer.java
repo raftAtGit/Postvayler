@@ -3,8 +3,8 @@ package raft.postvayler.samples.bank;
 import java.util.Map;
 import java.util.TreeMap;
 
-import raft.postvayler.Key;
 import raft.postvayler.Persistent;
+import raft.postvayler.inject.Key;
 
 /**
  * 

@@ -6,10 +6,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
-import raft.postvayler.Key;
 import raft.postvayler.Persistent;
 import raft.postvayler.Synch;
 import raft.postvayler.Persist;
+import raft.postvayler.inject.Key;
 
 /**
  * 
@@ -60,6 +60,11 @@ public class Bank implements Serializable {
 	@Synch
 	public List<Customer> getCustomers() {
 		return new ArrayList<Customer>(customers.values());
+	}
+
+	@Persist
+	public void removeCustomer(Customer customer) {
+		customers.remove(customer.getId());
 	}
 
 //	public HeadQuarters getHeadQuarters() {

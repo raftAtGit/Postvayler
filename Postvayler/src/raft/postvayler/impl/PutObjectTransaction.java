@@ -16,7 +16,7 @@ public class PutObjectTransaction implements Transaction<IsRoot> {
 
 	public void executeOn(IsRoot root, Date date) {
 		root.__postvayler_put(persistent);
-		System.out.println("put object in transaction " + persistent);
+		System.out.println("put object in transaction " + persistent.__postvayler_getId() + ":" + Utils.identityCode(persistent));
 	}
 
 }

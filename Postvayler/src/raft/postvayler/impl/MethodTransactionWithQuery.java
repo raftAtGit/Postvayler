@@ -31,9 +31,10 @@ public class MethodTransactionWithQuery<R> implements TransactionWithQuery<IsRoo
 	public R executeAndQuery(IsRoot root, Date date) throws Exception {
 		IsPersistent target = root.__postvayler_get(targetId);
 		if (target == null) {
-			// target is garbage collected
-			System.out.println("couldnt find target object with id " + targetId + ", possibly it's garbage collected, ignoring transaction");
-			return null;
+			throw new Error("couldnt get object from the pool, id: " + targetId); // we throw error to halt Prevayler
+//			// target is garbage collected
+//			System.out.println("couldnt find target object with id " + targetId + ", possibly it's garbage collected, ignoring transaction");
+//			return null;
 		}
 		Method m = method.getJavaMethod();
 		m.setAccessible(true);

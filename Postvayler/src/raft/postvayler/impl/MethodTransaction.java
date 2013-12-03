@@ -30,9 +30,10 @@ public class MethodTransaction implements Transaction<IsRoot> {
 		try {
 			IsPersistent target = root.__postvayler_get(targetId);
 			if (target == null) {
+				throw new Error("couldnt get object from the pool, id: " + targetId); // we throw error to halt Prevayler
 				// target is garbage collected
-				System.out.println("couldnt find target object with id " + targetId + ", possibly it's garbage collected, ignoring transaction");
-				return;
+//				System.out.println("couldnt find target object with id " + targetId + ", possibly it's garbage collected, ignoring transaction");
+//				return;
 			}
 			java.lang.reflect.Method m = method.getJavaMethod();
 			m.setAccessible(true);

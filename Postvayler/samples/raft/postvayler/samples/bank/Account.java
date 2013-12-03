@@ -2,7 +2,7 @@ package raft.postvayler.samples.bank;
 
 import java.io.Serializable;
 
-import raft.postvayler.Key;
+import raft.postvayler.inject.Key;
 
 /**
  * 

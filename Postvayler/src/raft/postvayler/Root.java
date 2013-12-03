@@ -6,11 +6,12 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
+ * Marks a Persistent object.
  * 
  * @author hakan eryargi (r a f t)
  */
 @Retention(RetentionPolicy.RUNTIME)
-@Target(ElementType.METHOD)
-public @interface Record {
+@Target(ElementType.TYPE)
+public @interface Root {
 
 }

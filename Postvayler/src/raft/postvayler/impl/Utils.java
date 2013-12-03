@@ -40,11 +40,20 @@ class Utils {
 		for (int i = 0; i < arguments.length; i++) {
 			Object arg = arguments[i];
 			if (arg instanceof Reference) {
-				IsPersistent persistent = root.__postvayler_get(((Reference)arg).id);
-				// TODO can persistent be null? ie: garbage collected?
+				Long id = ((Reference)arg).id;
+				IsPersistent persistent = root.__postvayler_get(id);
+				// TODO can persistent be null? ie: garbage collected? no it cant
+				if (persistent == null)
+					throw new Error("couldnt get object from the pool, id: " + id); // we throw error to halt Prevayler
 				arguments[i] = persistent;
 			}
 		}
 		return arguments;
 	}
+	
+	static String identityCode(Object object) {
+		return object.getClass().getName() + "@" + System.identityHashCode(object);
+	}
+	
+
 }

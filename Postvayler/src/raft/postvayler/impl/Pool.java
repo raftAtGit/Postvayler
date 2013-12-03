@@ -1,8 +1,8 @@
 package raft.postvayler.impl;
 
 import java.io.Serializable;
+import java.util.HashMap;
 import java.util.Map;
-import java.util.TreeMap;
 
 import raft.postvayler.NotPersistentException;
 
@@ -11,7 +11,8 @@ public class Pool implements Serializable {
 	private static final long serialVersionUID = 1L;
 	
 	// TODO later replace with a WeakValueMap
-	private Map<Long, IsPersistent> objects = new TreeMap<Long, IsPersistent>();
+//	private Map<Long, IsPersistent> objects = new WeakValueHashMap<Long, IsPersistent>();
+	private Map<Long, IsPersistent> objects = new HashMap<Long, IsPersistent>();
 	
 	private long lastId = 1;
 	

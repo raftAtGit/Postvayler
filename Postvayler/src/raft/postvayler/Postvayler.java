@@ -51,7 +51,8 @@ public class Postvayler<T> {
 					throw new NotCompiledException("cannot create Postvayler for " + empty.getClass().getName() 
 							+ ", root class is " + contextRootField.getType().getName());
 				
-				String instrumentationRoot = (String) empty.getClass().getField("__postvayler_root").get(null);
+				String classSuffix = getClassNameForJavaIdentifier(empty.getClass());
+				String instrumentationRoot = (String) empty.getClass().getField("__postvayler_root_" + classSuffix).get(null);
 				if (!empty.getClass().getName().equals(instrumentationRoot))
 					throw new NotCompiledException("given root class " + empty.getClass().getName() + " is instrumented for root class " + instrumentationRoot); 
 				
@@ -100,9 +101,8 @@ public class Postvayler<T> {
 		return new Postvayler<T>(t).create();
 	}
 	
-
-	public static <P, C> Locator<P, C> createLocator(C child) {
-		throw new NotCompiledException();
+	private static String getClassNameForJavaIdentifier(Class<?> clazz) {
+		return clazz.getName().replace('.', '_').replace('$', '_');
 	}
-	
+
 }
