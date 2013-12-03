@@ -21,7 +21,7 @@ public class MethodTransaction implements Transaction<IsRoot> {
 	public MethodTransaction(IsPersistent target, MethodWrapper method, Object[] arguments) {
 		this.targetId = target.__postvayler_getId();
 		if (targetId == null)
-			throw new NotPersistentException("object has no id, did you create this object before Postvayler is created?\n" + target);
+			throw new NotPersistentException("object has no id, did you create this object before Postvayler is created?\n" + Utils.identityCode(target));
 		this.method = method;
 		this.arguments = Utils.referenceArguments(arguments);
 	}
