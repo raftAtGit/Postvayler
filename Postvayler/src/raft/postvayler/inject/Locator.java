@@ -1,4 +1,4 @@
-package raft.postvayler;
+package raft.postvayler.inject;
 
 import java.io.Serializable;
 

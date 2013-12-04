@@ -6,10 +6,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
+import raft.postvayler.Persist;
 import raft.postvayler.Persistent;
 import raft.postvayler.Synch;
-import raft.postvayler.Persist;
-import raft.postvayler.inject.Key;
 
 /**
  * 
@@ -20,21 +19,24 @@ public class Bank implements Serializable {
 
 	private static final long serialVersionUID = 1L;
 
-//	private Person owner;
-//	private HeadQuarters headQuarters;
-	
 	private final Map<Integer, Customer> customers = new TreeMap<Integer, Customer>();
 	private final Map<Integer, Account> accounts = new TreeMap<Integer, Account>();
 
 	// TODO tmp
 	private Customer aCustomer;
 	
-	@Key(Bank.class)
 	int id; 
 
 	private int lastCustomerId = 1;
 	
 	public Bank() {}
+
+	@Persist
+	Customer createCustomer(String name) {
+		Customer customer = new Customer(name);
+		addCustomer(customer);
+		return customer;
+	}
 	
 	@Persist
 	Integer addCustomer(Customer customer) {

@@ -7,6 +7,11 @@ public class Main {
 
 	private static void stress(Bank bank) {
 		for (int i = 0; i < 10000; i++) {
+
+			if (Math.random() < 0.5) {
+				bank.createCustomer("bla bla");
+			}
+			
 			Customer customer = new Customer("name");
 			if (Math.random() < 0.8) {
 				customer.setPhone("bla bla");
@@ -18,9 +23,9 @@ public class Main {
 				bank.removeCustomer(customer);
 			}
 
-			if (Math.random() < 0.001) {
-				System.gc();
-			}
+//			if (Math.random() < 0.001) {
+//				System.gc();
+//			}
 		}
 	}
 	
@@ -36,7 +41,7 @@ public class Main {
 //			System.out.println(customer.getPhone());
 //		}
 
-		for (int i = 0; i < 10; i++) {
+		for (int i = 0; i < 1; i++) {
 			new Thread() {
 				public void run() {
 					stress(bank);

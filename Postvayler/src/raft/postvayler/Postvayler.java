@@ -36,6 +36,10 @@ public class Postvayler<T> {
 					return (T) instance.root;
 				throw new IllegalStateException("a persisted object already created for a different class: " + instance.root.getClass());
 			}
+
+			// TODO check root class is actually instrumented
+			if (!(empty instanceof IsRoot))
+				throw new NotCompiledException(empty.getClass().getName());
 			
 			String contextClassName = empty.getClass().getPackage().getName() + ".__Postvayler";
 			Class<?> contextClass;
@@ -64,9 +68,6 @@ public class Postvayler<T> {
 				throw new NotCompiledException(empty.getClass().getName(), e);
 			}
 			
-			// TODO check root class is actually instrumented
-			if (!(empty instanceof IsRoot))
-				throw new NotCompiledException(empty.getClass().getName());
 			
 			if (factory == null) {
 				factory = new PrevaylerFactory<T>();

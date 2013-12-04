@@ -24,12 +24,12 @@ import javassist.CtNewMethod;
 import javassist.Modifier;
 import javassist.NotFoundException;
 import javassist.bytecode.SignatureAttribute;
-import raft.postvayler.IsLocator;
 import raft.postvayler.Persist;
 import raft.postvayler.Persistent;
 import raft.postvayler.Storage;
 import raft.postvayler.impl.IsPersistent;
 import raft.postvayler.impl.IsRoot;
+import raft.postvayler.inject.IsLocator;
 import raft.postvayler.inject.Key;
 
 /**
@@ -273,8 +273,8 @@ public class Compiler {
 			clazz.addMethod(CtNewMethod.make("public void __postvayler_put(IsPersistent persistent) { __postvayler_pool.put(persistent);}", clazz));
 			System.out.println("added void __postvayler_put(IsPersistent persistent) method to " + clazz.getName());
 			
-			clazz.addMethod(CtNewMethod.make("public Long __postvayler_getNextId() { return __postvayler_pool.getNextId();}", clazz));
-			System.out.println("added Long __postvayler_getNextId() method to " + clazz.getName());
+//			clazz.addMethod(CtNewMethod.make("public Long __postvayler_getNextId() { return __postvayler_pool.getNextId();}", clazz));
+//			System.out.println("added Long __postvayler_getNextId() method to " + clazz.getName());
 			
 			// add code to add this object to pool
 			for (CtConstructor constructor : clazz.getDeclaredConstructors()) {
@@ -306,16 +306,32 @@ public class Compiler {
 				
 				String source = 
 						"private static final Long __postvayler_createId() { \n" +
-							"if (!" + contextClass.getName() + ".isBound()) { \n" +
+							contextClass.getName() + " context = " + contextClass.getName() + ".getInstance(); \n" +
+							"if (!context.isBound()) { \n" +
 							"  System.out.println(\"postvayler context not bound, no id will be given to object\"); \n" + // TODO log
 							"  return null; \n" + 
 							"} \n" +
 							// __postvayler_getNextId should also should be wrapped in a transaction
-							"        synchronized (" + contextClass.getName() + ".getInstance().root) \n {" + 
-							"Long id = (Long) " + contextClass.getName() + ".getInstance().prevayler.execute(new GetNextIdTransaction()); \n" +
-							"System.out.println(\"created id \" + id + \" for object " + clazz.getName() + "\"); \n" +
-							"return id; \n" + 
-							"} \n" +
+//							"synchronized (" + contextClass.getName() + ".getInstance().root) \n {" +
+							"    if (context.transactionStatus.isSet()) { \n" +
+							// we already in a transaction, get next id plain
+							"        return context.root.__postvayler_getNextId(); \n" +
+							"    } else { \n" +
+//							"        synchronized (context.root) \n {" + 
+							"        context.transactionStatus.set(true); \n" +  
+							"        try { \n" +
+							"           Long id = (Long) context.prevayler.execute(new GetNextIdTransaction()); \n" +
+							"           System.out.println(\"created id \" + id + \" for object " + clazz.getName() + "\"); \n" +
+							"           return id; \n" + 
+							"        } finally { \n" +
+							"           context.transactionStatus.set(false); \n" +  
+							"        } \n" + 
+//							"        } // synchronized \n" + // 
+							"    } \n" +
+//							"Long id = (Long) context.prevayler.execute(new GetNextIdTransaction()); \n" +
+//							"System.out.println(\"created id \" + id + \" for object " + clazz.getName() + "\"); \n" +
+//							"return id; \n" + 
+//							"} // synchronized \n" +
 						"}";
 				System.out.println(source);
 				clazz.addMethod(CtNewMethod.make(source, clazz));
@@ -333,14 +349,14 @@ public class Compiler {
 							// we already in a transaction, put object plain
 							"        context.root.__postvayler_put(this); \n" +
 							"    } else { \n" +
-							"        synchronized (context.root) \n {" + 
+//							"        synchronized (context.root) \n {" + 
 							"        context.transactionStatus.set(true); \n" +  
 							"        try { \n" +
 							"           context.prevayler.execute(new PutObjectTransaction(this)); \n" +
 							"        } finally { \n" +
 							"           context.transactionStatus.set(false); \n" +  
 							"        } \n" + 
-							"        } // synchronized \n" + // 
+//							"        } // synchronized \n" + // 
 							"    } \n" +
 							"} \n" +
 						"}";
@@ -490,8 +506,6 @@ public class Compiler {
 	private void createTransaction(CtMethod method) throws Exception {
 		if (Modifier.isAbstract(method.getModifiers())) 
 			throw new CompileException("abstract method cannot be @Transaction " + method.getLongName());
-		if (method.getAnnotation(IsLocator.class) != null)
-			throw new CompileException("@Transaction and @IsLocator cannot be used for same method " + method.getLongName());
 
 		CtMethod copy = CtNewMethod.copy(method, method.getDeclaringClass(), null);
 		String newName = "__postvayler__" + method.getName();
@@ -525,7 +539,7 @@ public class Compiler {
 				// get a reference to context
 				contextClass.getName() + " context = " + contextClass.getName() + ".getInstance(); \n" +
 				
-				"synchronized (context.root) { \n" +
+//				"synchronized (context.root) { \n" +
 				"    if (context.transactionStatus.isSet()) { \n" +
 				"        System.out.println(\"already in transaction, proceeding to original method " + copy.getLongName() + "\"); \n" + // TODO log
 				"        " + origCallStatement + 
@@ -554,7 +568,7 @@ public class Compiler {
 				"    } \n" + 
 				
 				
-				"} // synchronized \n" +
+//				"} // synchronized \n" +
 				
 
 				"}";

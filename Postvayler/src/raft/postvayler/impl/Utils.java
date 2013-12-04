@@ -5,7 +5,7 @@ package raft.postvayler.impl;
  * 
  * @author  hakan eryargi (r a f t)
  */
-class Utils {
+public class Utils {
 
 	static boolean doParametersMatch(Class<?>[] paramTypes, Object[] values) {
 		if (paramTypes.length != values.length)
@@ -51,7 +51,7 @@ class Utils {
 		return arguments;
 	}
 	
-	static String identityCode(Object object) {
+	public static String identityCode(Object object) {
 		return object.getClass().getName() + "@" + System.identityHashCode(object);
 	}
 	

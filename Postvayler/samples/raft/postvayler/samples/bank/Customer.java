@@ -22,6 +22,26 @@ public class Customer extends Person {
 
 	public Customer(String name) {
 		super(name);
+		
+		// pseudo injected code
+		
+		// if (context.isBound) {
+		//    if (context.inTransaction) {
+		//       id = context.root.put(this);
+		//    }  else {
+		// 
+		//        context.inTransaction = true
+		//        try {
+		//           id = prevayler.execute(new Tx(context.root.put(this)));
+		//        } finally {
+		//           context.inTransaction = false
+		//        }
+		//    }
+		// } else if (context.inRecovery) {
+		//   id = context.preRoot.put(this);
+		// } else {
+		//    // -> object is not persistent 
+		// }
 	}
 	
 	public int getId() {

@@ -27,6 +27,8 @@ public class MethodTransaction implements Transaction<IsRoot> {
 	}
 
 	public void executeOn(IsRoot root, Date date) {
+		if (!Context.isBound()) Context.recoveryRoot = root;
+		
 		try {
 			IsPersistent target = root.__postvayler_get(targetId);
 			if (target == null) {
@@ -42,6 +44,8 @@ public class MethodTransaction implements Transaction<IsRoot> {
 			throw e;
 		} catch (Exception e) {
 			throw new RuntimeException(e);
+		} finally {
+			Context.recoveryRoot = null;
 		}
 	}
 
