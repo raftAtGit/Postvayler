@@ -17,7 +17,7 @@ import raft.postvayler.impl.IsPersistent;
 import raft.postvayler.impl.IsRoot;
 import raft.postvayler.impl.MethodTransaction;
 import raft.postvayler.impl.MethodTransactionWithQuery;
-import raft.postvayler.impl.MethodWrapper;
+import raft.postvayler.impl.MethodCall;
 import raft.postvayler.impl.Pool;
 
 /**
@@ -54,7 +54,7 @@ public class _Bank implements Serializable, IsRoot, IsPersistent, Storage {
 		context.setInTransaction(true);
 		try {
 			return context.prevayler.execute(new MethodTransactionWithQuery<_Customer>(
-					this, new MethodWrapper("__postvayler__createCustomer", getClass(), new Class[] {String.class}), new Object[] { name } ));
+					this, new MethodCall("__postvayler__createCustomer", getClass(), new Class[] {String.class}), new Object[] { name } ));
 		} finally {
 			context.setInTransaction(false);
 		}
@@ -72,7 +72,7 @@ public class _Bank implements Serializable, IsRoot, IsPersistent, Storage {
 		context.setInTransaction(true);
 		try {
 			return context.prevayler.execute(new MethodTransactionWithQuery<Integer>(
-					this, new MethodWrapper("__postvayler__addCustomer", getClass(), new Class[] {_Customer.class}), new Object[] { customer } ));
+					this, new MethodCall("__postvayler__addCustomer", getClass(), new Class[] {_Customer.class}), new Object[] { customer } ));
 		} finally {
 			context.setInTransaction(false);
 		}
@@ -94,7 +94,7 @@ public class _Bank implements Serializable, IsRoot, IsPersistent, Storage {
 		context.setInTransaction(true);
 		try {
 			context.prevayler.execute(new MethodTransaction(
-					this, new MethodWrapper("__postvayler__addCustomers", getClass(), new Class[] {_Customer[].class}), new Object[] { customers } ));
+					this, new MethodCall("__postvayler__addCustomers", getClass(), new Class[] {_Customer[].class}), new Object[] { customers } ));
 		} finally {
 			context.setInTransaction(false);
 		}
@@ -116,7 +116,7 @@ public class _Bank implements Serializable, IsRoot, IsPersistent, Storage {
 		context.setInTransaction(true);
 		try {
 			context.prevayler.execute(new MethodTransaction(
-					this, new MethodWrapper("__postvayler__removeCustomer", getClass(), new Class[] {_Customer.class}), new Object[] { customer } ));
+					this, new MethodCall("__postvayler__removeCustomer", getClass(), new Class[] {_Customer.class}), new Object[] { customer } ));
 		} finally {
 			context.setInTransaction(false);
 		}
@@ -134,17 +134,14 @@ public class _Bank implements Serializable, IsRoot, IsPersistent, Storage {
 	private Integer __postvayler__addCustomer(_Customer customer) {
 		customer.setId(lastCustomerId++);
 		customers.put(customer.getId(), customer);
-		System.out.println("added customer, new size: " + customers.size());
 		return customer.getId();
 	}
 
 	@_Injected
 	private void __postvayler__addCustomers(_Customer... customers) throws Exception {
-		System.out.println("add customers");
 		for (_Customer customer : customers) {
 			addCustomer(customer);
 		}
-		System.out.println("added " + customers.length + ", customers new size: " + this.customers.size());
 	}
 	
 	@_Injected

@@ -15,10 +15,10 @@ public class MethodTransaction implements Transaction<IsRoot> {
 	private static final long serialVersionUID = 1L;
 
 	private final Long targetId;
-	private final MethodWrapper method;
+	private final MethodCall method;
 	private final Object[] arguments;
 
-	public MethodTransaction(IsPersistent target, MethodWrapper method, Object[] arguments) {
+	public MethodTransaction(IsPersistent target, MethodCall method, Object[] arguments) {
 		this.targetId = target.__postvayler_getId();
 		if (targetId == null)
 			throw new NotPersistentException("object has no id, did you create this object before Postvayler is created?\n" + Utils.identityCode(target));

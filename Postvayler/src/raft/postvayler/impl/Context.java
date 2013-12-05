@@ -44,6 +44,14 @@ public abstract class Context {
 		return instance;
 	}
 	
+	public static final boolean isInRecovery() {
+		return (recoveryRoot != null);
+	}
+	
+	public static final IsRoot getRecoveryRoot() {
+		return recoveryRoot;
+	}
+	
 	public boolean inTransaction() {
 		return transactionStatus.get();
 	}

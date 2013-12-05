@@ -55,5 +55,13 @@ public class Utils {
 		return object.getClass().getName() + "@" + System.identityHashCode(object);
 	}
 	
+    static String[] getTypeNames(Class<?>[] types) {
+    	String[] names = new String[types.length];
+    	
+        for (int i = 0; i < types.length; ++i) {
+        	names[i] = types[i].getName();
+        }
+        return names;
+    }
 
 }
