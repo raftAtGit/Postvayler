@@ -22,16 +22,6 @@ public class _Person implements Serializable, IsPersistent {
 	private String name;
 	private String phone;
 
-	// TODO id will be created here but object will be put in every constructor
-	// we can analyze each constructor with ExprEditor, if there is a ConstructorCall like this(..) no need to 
-	// inject Postvayler.put() in that constructor
-	// but still, in a deep hierarchy an object is put in every depth of constructor, seems as there is no way around this
-	// this is because, the object is serialized as it's in that stage, and simply putting an object in only parent (super)
-	// constructor means putting it in an incomplete stage
-	
-	// unless we find a way to put objects without serialization. serialization causes another problem: the root and pool 
-	// has different copies. 
-	// @see Context class
 	@_Injected protected Long __postvayler_Id;
 	
 	public _Person() throws Exception {

@@ -18,8 +18,18 @@ public class MethodTransactionWithQuery<R> implements TransactionWithQuery<IsRoo
 	private final Long targetId;
 	private final MethodCall method;
 	private final Object[] arguments;
+	
+	/** 
+	 * we keep a transient reference to our target. GCPreventingPrevayler keeps a reference to this Transaction. these two references 
+	 * safely prevents garbage collector cleaning our target before we are done
+	 * 
+	 * @see GCPreventingPrevayler
+	 */  
+	@SuppressWarnings("unused")
+	private transient IsPersistent target;
 
 	public MethodTransactionWithQuery(IsPersistent target, MethodCall method, Object[] arguments) {
+		this.target = target;
 		this.targetId = target.__postvayler_getId();
 		if (targetId == null)
 			throw new NotPersistentException("object has no id, did you create this object before Postvayler is created?\n" + Utils.identityCode(target));

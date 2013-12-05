@@ -6,6 +6,7 @@ import java.lang.reflect.Field;
 import org.prevayler.Prevayler;
 import org.prevayler.PrevaylerFactory;
 
+import raft.postvayler.impl.GCPreventingPrevayler;
 import raft.postvayler.impl.IsRoot;
 
 /**
@@ -76,11 +77,9 @@ public class Postvayler<T> {
 			}
 			Prevayler<T> prevayler = factory.create();
 			root = prevayler.prevalentSystem();
-//			if ((root == empty)) {
-//				// initial creation, we need to manually assign id
-//				
-//			}
-			contextRootConstructor.newInstance(prevayler, root);
+			((IsRoot) root).__postvayler_onRecoveryCompleted();
+			
+			contextRootConstructor.newInstance(new GCPreventingPrevayler((Prevayler<IsRoot>)prevayler), root);
 			
 			instance = this;
 			

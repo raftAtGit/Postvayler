@@ -1,11 +1,15 @@
 package raft.postvayler.impl;
 
+/** 
+ * Injected into root class 
+ * 
+ * @author r a f t
+ */
 public interface IsRoot extends IsPersistent {
 	
-//	Long __postvayler_getNextId();
+	public IsPersistent __postvayler_get(Long id);
 	
-	IsPersistent __postvayler_get(Long id);
-	
-	Long __postvayler_put(IsPersistent persistent);
-	
+	public Long __postvayler_put(IsPersistent persistent);
+
+	public void __postvayler_onRecoveryCompleted();
 }

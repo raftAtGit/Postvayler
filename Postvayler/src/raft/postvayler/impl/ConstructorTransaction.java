@@ -8,8 +8,14 @@ import java.util.Map;
 import org.prevayler.TransactionWithQuery;
 
 /**
+ * A special Transaction which behaves different at <i>recovery</i> and <i>regular</i> run. 
+ * This transaction stores given target object in a temporary memory location and returns it as it's during regular run. 
+ * At recovery, an object is created with given constructor. This mechanism escapes target object from 
+ * Prevayler's transaction serialization. Coordinated with injected code to object's constructor, 
+ * at either recovery or regular run, after this transaction is executed the object gets a unique id. Since Prevayler
+ * guarantees transaction ordering, it's guaranteed that the target object will get the same id.     
  * 
- * @author  hakan eryargi (r a f t)
+ * @author r a f t
  */
 public class ConstructorTransaction implements TransactionWithQuery<IsRoot, Long> {
 
@@ -52,7 +58,7 @@ public class ConstructorTransaction implements TransactionWithQuery<IsRoot, Long
 				cons.setAccessible(true);
 				IsPersistent target = cons.newInstance(arguments);
 				assert (target.__postvayler_getId() != null);
-				return target.__postvayler_getId(); // return type is not actually used in this case
+				return null; // return type is not actually used in this case
 			} finally {
 				Context.recoveryRoot = null;
 			}

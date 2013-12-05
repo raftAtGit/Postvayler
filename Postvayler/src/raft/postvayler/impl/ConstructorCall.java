@@ -32,7 +32,7 @@ public class ConstructorCall<T> implements Serializable {
     	
         Class<?> [] args = new Class[argTypes.length];
         for (int i = 0; i < args.length; ++i) {
-            args[i] = Class.forName(argTypes[i]);
+            args[i] = Utils.getClass(argTypes[i]);
         }
         return (Constructor<IsPersistent>) Class.forName(className).getDeclaredConstructor(args);
     }

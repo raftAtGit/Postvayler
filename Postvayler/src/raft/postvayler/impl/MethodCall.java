@@ -37,7 +37,7 @@ public class MethodCall implements Serializable {
     	
         Class<?> [] args = new Class[argTypes.length];
         for (int i = 0; i < args.length; ++i) {
-            args[i] = Class.forName(argTypes[i]);
+            args[i] = Utils.getClass(argTypes[i]);
         }
         return Class.forName(className).getDeclaredMethod(name, args);
     }

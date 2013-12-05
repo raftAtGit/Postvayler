@@ -42,7 +42,6 @@ public class Utils {
 			if (arg instanceof Reference) {
 				Long id = ((Reference)arg).id;
 				IsPersistent persistent = root.__postvayler_get(id);
-				// TODO can persistent be null? ie: garbage collected? no it cant
 				if (persistent == null)
 					throw new Error("couldnt get object from the pool, id: " + id); // we throw error to halt Prevayler
 				arguments[i] = persistent;
@@ -62,6 +61,24 @@ public class Utils {
         	names[i] = types[i].getName();
         }
         return names;
+    }
+    
+    static Class<?> getClass(String name) throws ClassNotFoundException {
+    	if (boolean.class.getName().equals(name)) {
+    		return boolean.class; 
+    	} else if (char.class.getName().equals(name)) {
+    		return char.class; 
+    	} else if (int.class.getName().equals(name)) {
+    		return int.class; 
+    	} else if (long.class.getName().equals(name)) {
+    		return long.class; 
+    	} else if (float.class.getName().equals(name)) {
+    		return float.class; 
+    	} else if (double.class.getName().equals(name)) {
+    		return double.class; 
+    	} else {
+    		return Class.forName(name);
+    	} 
     }
 
 }
