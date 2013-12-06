@@ -11,7 +11,7 @@ import raft.postvayler.impl.IsRoot;
  */
 public class __Postvayler extends Context {
 
-	public __Postvayler(Prevayler<IsRoot> prevayler, IsRoot root) {
+	public __Postvayler(Prevayler<IsRoot> prevayler, _Bank root) {
 		super(prevayler, root);
 	}
 }

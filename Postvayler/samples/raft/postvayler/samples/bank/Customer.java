@@ -1,10 +1,13 @@
 package raft.postvayler.samples.bank;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
+import raft.postvayler.Persist;
 import raft.postvayler.Persistent;
-import raft.postvayler.inject.Key;
+import raft.postvayler.Synch;
 
 /**
  * 
@@ -14,34 +17,13 @@ import raft.postvayler.inject.Key;
 public class Customer extends Person {
 	private static final long serialVersionUID = 1L;
 
-	@Key(Bank.class)
 	private int id;
-	
 
 	private final Map<Integer, Account> accounts = new TreeMap<Integer, Account>();
-
+	private Account account; // TODO tmp
+	
 	public Customer(String name) {
 		super(name);
-		
-		// pseudo injected code
-		
-		// if (context.isBound) {
-		//    if (context.inTransaction) {
-		//       id = context.root.put(this);
-		//    }  else {
-		// 
-		//        context.inTransaction = true
-		//        try {
-		//           id = prevayler.execute(new Tx(context.root.put(this)));
-		//        } finally {
-		//           context.inTransaction = false
-		//        }
-		//    }
-		// } else if (context.inRecovery) {
-		//   id = context.preRoot.put(this);
-		// } else {
-		//    // -> object is not persistent 
-		// }
 	}
 	
 	public int getId() {
@@ -50,6 +32,19 @@ public class Customer extends Person {
 
 	void setId(int id) {
 		this.id = id;
+	}
+	
+	@Persist
+	public void addAccount(Account account) {
+		if (account.getOwner() != null)
+			throw new IllegalArgumentException("Account already has an owner");
+		
+		accounts.put(account.getId(), account);
+	}
+	
+	@Synch
+	public List<Account> getAccounts() {
+		return new ArrayList<Account>(accounts.values());
 	}
 
 	@Override

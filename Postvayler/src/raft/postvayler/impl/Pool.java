@@ -22,7 +22,7 @@ public class Pool implements Serializable {
 	public final synchronized Long put(IsPersistent persistent) {
 		Long id = lastId++;
 		objects.put(id, persistent);
-		System.out.println("put " + id + ":" + Utils.identityCode(persistent) + ", size: " + objects.size());
+//		System.out.println("put " + id + ":" + Utils.identityCode(persistent) + ", size: " + objects.size());
 		return id;
 	}
 	
@@ -31,7 +31,7 @@ public class Pool implements Serializable {
 	} 
 
 	public final synchronized void switchToWeakValues() {
-		System.out.println("--switching ToWeakValues");
+		System.out.println("--switching to weak values");
 		this.objects = new WeakValueHashMap<Long, IsPersistent>(objects); 
 		System.out.println("--done");
 	}

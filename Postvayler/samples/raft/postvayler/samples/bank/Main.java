@@ -1,86 +1,286 @@
 package raft.postvayler.samples.bank;
 
+import java.lang.reflect.Field;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
+
 import raft.postvayler.Postvayler;
-import raft.postvayler.Storage;
+import raft.postvayler.impl.Context;
 
 public class Main {
 
-	private static void stress(Bank bank) {
-		for (int i = 0; i < 10000; i++) {
+	public static void main(String[] args) throws Exception {
+		doStressTest();
+//		runEqualityTest();
+	}
+	
+	/** IMPORTANT: this test must be run with persist directory empty: persist/raft.postvayler.samples.bank.Bank/ */
+	public static void runEqualityTest() throws Exception {
+		Bank pojoBank = new Bank();
+		populateBank(pojoBank, new Random(42));
+		System.out.println("populated pojo bank");
+		
+		Bank bank = Postvayler.create(Bank.class);
+		populateBank(bank, new Random(42));
+		System.out.println("populated persisted bank");
 
-			if (Math.random() < 0.5) {
-				bank.createCustomer("bla bla");
-			}
+		System.out.println("checking for equality");
+		checkEqual(bank, pojoBank);
+		System.out.println("-- initial populate test completed --");
+		
+		for (int i = 0; i < 10; i++) {
+		
+			long seed = new Random().nextLong();
 			
-			Customer customer = new Customer("name");
-			if (Math.random() < 0.8) {
-				customer.setPhone("bla bla");
+			resetPostvayler();
+	
+			populateBank(pojoBank, new Random(seed));
+			System.out.println("populated pojo bank");
+			
+			bank = Postvayler.create(Bank.class);
+			populateBank(bank, new Random(seed));
+			System.out.println("populated persisted bank");
+	
+			System.out.println("checking for equality");
+			checkEqual(bank, pojoBank);
+			System.out.println("-- load/continue test " + (i+1) + " completed --");
+		}
+		
+		System.out.println("final customers: " + bank.getCustomers().size());
+		
+//		System.out.println("--");
+//		for (_Customer cust : pojoBank.getCustomers()) {
+//			System.out.println(cust.__postvayler_getId() + ":" + cust + ", phone: " + cust.getPhone());
+//		}
+	}
+	
+	public static void doStressTest() throws Exception {
+		final Bank bank = Postvayler.create(Bank.class);
+		
+		List<Thread> threads = new ArrayList<Thread>();
+		
+		for (int i = 0; i < 10; i++) {
+			threads.add(new Thread() {
+				public void run() {
+					try {
+						populateBank(bank, new Random());
+					} catch (Exception e) {
+						throw new RuntimeException(e);
+					}
+				};
+			});
+		}
+		new Thread() {
+			public void run() {
+				while (true) {
+					System.gc();
+					try {
+						Thread.sleep(1000);
+					} catch (InterruptedException e) {}
+				}
+			};
+		}.start();
+		
+		for (Thread t : threads) {
+			t.start();
+		}
+		for (Thread t : threads) {
+			t.join();
+		}
+		System.out.println("all threads completed");
+		
+	}
+	
+	private static void checkEqual(Bank bank, Bank pojoBank) throws Exception {
+		List<Customer> customers = bank.getCustomers();
+		List<Customer> pojoCustomers = pojoBank.getCustomers();
+		
+		if (customers.size() != pojoCustomers.size())
+			throw new Exception("customer sizes differ " + customers.size() + ", " + pojoCustomers.size());
+		
+		for (int i = 0; i < customers.size(); i++) {
+			Customer customer = customers.get(i);
+			Customer pojoCustomer = pojoCustomers.get(i);
+			
+			checkEqual(customer, pojoCustomer);
+			
+			for (Account account : customer.getAccounts()) {
+				// check object identity
+				if (bank.getAccount(account.getId()) != account)
+					throw new Exception("test failed");
 			}
-			if (Math.random() < 0.5) {
-				bank.addCustomer(customer);
-			}
-			if (Math.random() < 0.1) {
-				bank.removeCustomer(customer);
-			}
+		}
 
-//			if (Math.random() < 0.001) {
-//				System.gc();
-//			}
+		List<Account> accounts = bank.getAccounts();
+		List<Account> pojoAccounts = pojoBank.getAccounts();
+		
+		if (accounts.size() != pojoAccounts.size())
+			throw new Exception("account sizes differ " + accounts.size() + ", " + pojoAccounts.size());
+		
+		for (int i = 0; i < accounts.size(); i++) {
+			Account account = accounts.get(i);
+			Account pojoAccount = pojoAccounts.get(i);
+			
+			checkEqual(account, pojoAccount);
+		}
+	}
+
+	private static void checkEqual(Customer customer, Customer pojoCustomer) throws Exception {
+		if (customer.getId() != pojoCustomer.getId())
+			throw new Exception("test failed");
+		
+		if (!equals(customer.getName(), pojoCustomer.getName()))
+			throw new Exception("test failed");
+
+		if (!equals(customer.getPhone(), pojoCustomer.getPhone()))
+			throw new Exception("test failed");
+		
+		if (customer.getAccounts().size() != pojoCustomer.getAccounts().size())
+			throw new Exception("test failed");
+	}
+	
+	private static void checkEqual(Account account, Account pojoAccount) throws Exception {
+		if (account.getId() != pojoAccount.getId())
+			throw new Exception("test failed");
+		
+		if (account.getBalance() != pojoAccount.getBalance())
+			throw new Exception("test failed");
+		
+		if (!equals(account.getName(), pojoAccount.getName()))
+			throw new Exception("test failed");
+
+		Customer owner = account.getOwner();
+		Customer pojoOwner = pojoAccount.getOwner();
+		
+		if ((owner == null) ^ (pojoOwner == null))
+			throw new Exception("test failed");
+		
+		if (owner != null)
+			checkEqual(owner, pojoOwner);
+	}
+	
+	private static boolean equals(Object o1, Object o2) {
+		if (o1 == null) return (o2 == null);
+		if (o2 == null) return false;
+		return o1.equals(o2);
+	}
+	
+	private static void resetPostvayler() throws Exception {
+		Context.getInstance().prevayler.close();
+		
+		Field field = Context.class.getDeclaredField("instance");
+		field.setAccessible(true);
+		field.set(null, null);
+		
+		field = Postvayler.class.getDeclaredField("instance");
+		field.setAccessible(true);
+		field.set(null, null);
+	}
+	
+	private static void populateBank(Bank bank, Random random) throws Exception {
+		
+		// add some initial customers and accounts
+		for (int i = 0; i < 50 + random.nextInt(50); i++) {
+			Customer customer = bank.createCustomer("initial:" + random.nextInt());
+			customer.addAccount(bank.createAccount());
+		}
+		
+		int count = 1000 + random.nextInt(1000);
+		
+		for (int action = 0; action < count; action++) {
+			
+			int next = random.nextInt(12);
+			
+			switch (next) {
+			 case 0: {
+				 // create a customer via bank
+				 Customer customer = bank.createCustomer("create:" + random.nextInt());
+				 break;
+			 }
+			 case 1: {
+				 // create customer
+				 Customer customer = new Customer("add:" + random.nextInt());
+				 bank.addCustomer(customer);
+				 break;
+			 	}
+			 case 2: {
+				 // create customer via bank and set phone
+				 Customer customer = bank.createCustomer("create:" + random.nextInt());
+				 customer.setPhone("phone:" +  + random.nextInt());
+				 break;
+			 	}
+			 // set phones of some customers
+			 case 3: {
+				 List<Customer> customers = bank.getCustomers();
+				 if (customers.isEmpty())
+					 break;
+				 for (int ci = 0; ci < random.nextInt(Math.max(1, customers.size()/5)); ci++) {
+					 Customer customer = customers.get(random.nextInt(customers.size()));
+					 customer.setPhone("phone:ran" + random.nextInt());
+				 }
+				 break;
+			 	}
+			 // remove some customers
+			 case 4: {
+				 List<Customer> customers = bank.getCustomers();
+				 if (customers.isEmpty())
+					 break;
+				 for (int i = 0; i < random.nextInt(Math.max(1, customers.size()/10)); i++) {
+					 Customer customer = customers.get(random.nextInt(customers.size()));
+					 bank.removeCustomer(customer);
+				 }
+				 break;
+			 	}
+			 // create some accounts
+			 case 5: {
+				 bank.createAccount();
+				 break;
+			 }
+			 // create some accounts and deposit money
+			 case 6: {
+				 bank.createAccount().deposit(10 + random.nextInt(50));
+				 break;
+			 }
+			 // create some accounts and add to customers
+			 case 7: {
+				 List<Customer> customers = bank.getCustomers();
+				 if (customers.isEmpty())
+					 break;
+				 for (int ci = 0; ci < random.nextInt(Math.max(1, customers.size()/10)); ci++) {
+					 Customer customer = customers.get(random.nextInt(customers.size()));
+					 Account account = bank.createAccount();
+					 account.setName("account:" + random.nextInt());
+					 account.deposit(100 + random.nextInt(100));
+					 customer.addAccount(account);
+				 }
+				 break;
+			 	}
+			 // transfer some money
+			 case 8: 
+			 case 9: 
+			 case 10: 
+			 case 11: {
+				 List<Account> accounts = bank.getAccounts();
+				 if (accounts.size() < 2)
+					 break;
+				 
+				 for (int i = 0; i < random.nextInt(10); i++) {
+					 Account from, to;
+					 while ( (from = accounts.get(random.nextInt(accounts.size()))) == 
+							 (to = accounts.get(random.nextInt(accounts.size())))) {}
+					 
+					 int amount = Math.min(from.getBalance(), to.getBalance()) / 3;
+					 if (amount == 0)
+						 continue;
+					 
+					 bank.transferAmount(from, to, amount);
+				 }
+				 
+				 break;
+			 }
+			}
 		}
 	}
 	
-	public static void main(String[] args) throws Exception {
-		final Bank bank = Postvayler.create(Bank.class);
-		//Bank bank = new Bank();
-		
-		int customerCount = bank.getCustomers().size();
-		System.out.println("got bank, customers: " + customerCount + " " + bank);
-
-//		for (Customer customer : bank.getCustomers()) {
-//			//customer.setPhone("phone:" + customer.getId());
-//			System.out.println(customer.getPhone());
-//		}
-
-		for (int i = 0; i < 1; i++) {
-			new Thread() {
-				public void run() {
-					stress(bank);
-				};
-			}.start();
-		}
-		
-		stress(bank);
-		
-		//Person person = new Person();
-		//Customer customer = new Customer("monica");
-		
-//		Storage storage = (Storage) bank;
-//		storage.takeSnapshot();
-//		System.out.println("took snapshot");
-		
-//		Customer customer = new Customer("name_" + customerCount);
-//		bank.addCustomer(customer);
-//		bank.addCustomers(new Customer("name_" + customerCount++), 
-//				new Customer("name_" + customerCount++), 
-//				new Customer("name_" + customerCount++));
-		
-//		for (Customer customer : bank.getCustomers()) {
-//			System.out.println(customer);
-//		}
-		
-//		HeadQuarters head = new HeadQuarters();
-//		head.setCity("istanbul");
-//		head.setAddress("istiklal caddesi, beyoglu");
-//		
-//		bank.setHeadQuarters(head);
-		
-//		bank.getHeadQuarters().setCity("old istanbul");
-//		System.out.println(bank.getHeadQuarters().getCity());
-//		System.out.println(bank.getHeadQuarters().getAddress());
-		
-//		IsRoot root = (IsRoot) bank;
-//		root.__postvayler_get(3L);
-		
-		//((IsRoot) bank).__postvayler_getNextId();
-	}
 }

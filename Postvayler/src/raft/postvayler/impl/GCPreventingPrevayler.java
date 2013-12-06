@@ -37,30 +37,30 @@ public class GCPreventingPrevayler implements Prevayler<IsRoot> {
 	}
 
 	public void execute(Transaction<? super IsRoot> transaction) {
-		Transaction<? super IsRoot> copy = transaction;
+//		Transaction<? super IsRoot> copy = transaction;
 		delegate.execute(transaction);
-		dummy.execute(copy);
+		dummy.execute(transaction);
 	}
 	
 	public <R> R execute(TransactionWithQuery<? super IsRoot, R> transactionWithQuery) throws Exception {
-		TransactionWithQuery<? super IsRoot, R> copy = transactionWithQuery;
+//		TransactionWithQuery<? super IsRoot, R> copy = transactionWithQuery;
 		R result = delegate.execute(transactionWithQuery);
-		dummy.execute(copy);
+		dummy.execute(transactionWithQuery);
 		return result;
 	}
 
 
 	public <R> R execute(Query<? super IsRoot, R> sensitiveQuery) throws Exception {
-		Query<? super IsRoot, R> copy = sensitiveQuery;
+//		Query<? super IsRoot, R> copy = sensitiveQuery;
 		R result = delegate.execute(sensitiveQuery);
-		dummy.execute(copy);
+		dummy.execute(sensitiveQuery);
 		return result;
 	}
 
 	public <R> R execute(SureTransactionWithQuery<? super IsRoot, R> sureTransactionWithQuery) {
-		SureTransactionWithQuery<? super IsRoot, R> copy = sureTransactionWithQuery;
+//		SureTransactionWithQuery<? super IsRoot, R> copy = sureTransactionWithQuery;
 		R result = delegate.execute(sureTransactionWithQuery);
-		dummy.execute(copy);
+		dummy.execute(sureTransactionWithQuery);
 		return result;
 	}
 

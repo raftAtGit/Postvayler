@@ -49,10 +49,10 @@ public class Postvayler<T> {
 			
 			try {
 				contextClass = Class.forName(contextClassName);
-				contextRootField = contextClass.getField("root");
+				contextRootField = contextClass.getField("rootClass");
 				contextRootConstructor = contextClass.getConstructor(Prevayler.class, empty.getClass());
 				
-				if (!contextRootField.getType().equals(empty.getClass())) 
+				if (!contextRootField.get(null).equals(empty.getClass())) 
 					throw new NotCompiledException("cannot create Postvayler for " + empty.getClass().getName() 
 							+ ", root class is " + contextRootField.getType().getName());
 				

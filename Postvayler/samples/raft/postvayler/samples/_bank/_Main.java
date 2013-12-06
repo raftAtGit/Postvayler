@@ -20,42 +20,8 @@ import raft.postvayler.impl.IsRoot;
 public class _Main {
 
 	public static void main(String[] args) throws Exception {
-		doStressTest();
-//		runEqualityTest();
-	}
-	
-	public static void doStressTest() throws Exception {
-		final _Bank bank = createPersistentBank();
-		
-		List<Thread> threads = new ArrayList<Thread>();
-		
-		for (int i = 0; i < 10; i++) {
-			threads.add(new Thread() {
-				public void run() {
-					try {
-						populateBank(bank, new Random());
-					} catch (Exception e) {
-						throw new RuntimeException(e);
-					}
-				};
-			});
-		}
-		new Thread() {
-			public void run() {
-				while (true) {
-					System.gc();
-				}
-			};
-		}.start();
-		
-		for (Thread t : threads) {
-			t.start();
-		}
-		for (Thread t : threads) {
-			t.join();
-		}
-		System.out.println("all threads completed");
-		
+//		doStressTest();
+		runEqualityTest();
 	}
 	
 	/** IMPORTANT: this test must be run with persist directory empty: persist/raft.postvayler.samples._bank._Bank/ */
@@ -96,6 +62,43 @@ public class _Main {
 //		for (_Customer cust : pojoBank.getCustomers()) {
 //			System.out.println(cust.__postvayler_getId() + ":" + cust + ", phone: " + cust.getPhone());
 //		}
+	}
+	
+	public static void doStressTest() throws Exception {
+		final _Bank bank = createPersistentBank();
+		
+		List<Thread> threads = new ArrayList<Thread>();
+		
+		for (int i = 0; i < 10; i++) {
+			threads.add(new Thread() {
+				public void run() {
+					try {
+						populateBank(bank, new Random());
+					} catch (Exception e) {
+						throw new RuntimeException(e);
+					}
+				};
+			});
+		}
+		new Thread() {
+			public void run() {
+				while (true) {
+					System.gc();
+					try {
+						Thread.sleep(1000);
+					} catch (InterruptedException e) {}
+				}
+			};
+		}.start();
+		
+		for (Thread t : threads) {
+			t.start();
+		}
+		for (Thread t : threads) {
+			t.join();
+		}
+		System.out.println("all threads completed");
+		
 	}
 	
 	private static void checkEqual(_Bank bank, _Bank pojoBank) throws Exception {
@@ -182,7 +185,7 @@ public class _Main {
 		IsRoot root = prevayler.prevalentSystem();
 		root.__postvayler_onRecoveryCompleted();
 		
-		new __Postvayler(prevayler, root);
+		new __Postvayler(prevayler, (_Bank)root);
 		return (_Bank) root;
 	}
 	
@@ -196,6 +199,13 @@ public class _Main {
 
 	
 	private static void populateBank(_Bank bank, Random random) throws Exception {
+		
+		// add some initial customers and accounts
+		for (int i = 0; i < 50 + random.nextInt(50); i++) {
+			_Customer customer = bank.createCustomer("initial:" + random.nextInt());
+			customer.addAccount(bank.createAccount());
+		}
+		
 		int count = 1000 + random.nextInt(1000);
 		
 		for (int action = 0; action < count; action++) {
@@ -204,7 +214,7 @@ public class _Main {
 			
 			switch (next) {
 			 case 0: {
-				 // create detached customer
+				 // create a customer via bank
 				 _Customer customer = bank.createCustomer("create:" + random.nextInt());
 				 break;
 			 }

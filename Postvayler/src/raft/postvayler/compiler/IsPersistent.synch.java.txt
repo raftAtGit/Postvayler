@@ -1,0 +1,16 @@
+// injected into void @Synch methods in IsPersistent
+// original method is renamed to private <ReturnType> __postvayler__<MethodName>(..)  
+   
+// 0: context class name
+// 1: method original name
+
+
+'{'
+		if (! {0}.isBound()) '{' 
+			return __postvayler__{1} ( $$ );
+		}
+		
+		synchronized ({0}.getInstance().root) '{'
+			return __postvayler__{1} ( $$ );
+		}
+}

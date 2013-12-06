@@ -25,34 +25,52 @@ public class Bank implements Serializable {
 	// TODO tmp
 	private Customer aCustomer;
 	
-	int id; 
-
 	private int lastCustomerId = 1;
+	private int lastAccountId = 1;
 	
 	public Bank() {}
 
 	@Persist
-	Customer createCustomer(String name) {
+	public Customer createCustomer(String name) {
 		Customer customer = new Customer(name);
 		addCustomer(customer);
 		return customer;
 	}
 	
 	@Persist
-	Integer addCustomer(Customer customer) {
+	public Integer addCustomer(Customer customer) {
 		customer.setId(lastCustomerId++);
 		customers.put(customer.getId(), customer);
-		System.out.println("added customer, new size: " + customers.size());
 		return customer.getId();
 	}
 
 	@Persist
 	void addCustomers(Customer... customers) {
-		System.out.println("add customers");
 		for (Customer customer : customers) {
 			addCustomer(customer);
 		}
-		System.out.println("added " + customers.length + ", customers new size: " + this.customers.size());
+	}
+	
+	@Persist
+	public Account createAccount() throws Exception {
+		Account account = new Account(lastAccountId++);
+		accounts.put(account.getId(), account);
+		return account;
+	}
+	
+	@Persist
+	public void transferAmount(Account from, Account to, int amount) throws Exception {
+		if (from.getId() == to.getId()) {
+			assert (from == to);
+			throw new IllegalArgumentException("from and to are same accounts");
+		}
+		if (amount <= 0)
+			throw new IllegalArgumentException("amount: " + amount);
+		if (from.getBalance() < amount)
+			throw new IllegalArgumentException("balance < amount");
+		
+		from.withdraw(amount);
+		to.deposit(amount);
 	}
 	
 	public Customer getCustomer(int customerId) {
@@ -69,16 +87,12 @@ public class Bank implements Serializable {
 		customers.remove(customer.getId());
 	}
 
-//	public HeadQuarters getHeadQuarters() {
-//		return headQuarters;
-//	}
-//
-//	@Persist
-//	public void setHeadQuarters(HeadQuarters headQuarters) {
-//		this.headQuarters = headQuarters;
-//		headQuarters.bank = this;
-//	}
+	@Synch
+	public List<Account> getAccounts() {
+		return new ArrayList<Account>(accounts.values());
+	}
 	
-	
-	 
+	public Account getAccount(int id) {
+		return accounts.get(id);
+	}
 }

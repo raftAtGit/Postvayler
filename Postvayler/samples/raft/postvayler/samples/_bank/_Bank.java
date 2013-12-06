@@ -1,10 +1,8 @@
 package raft.postvayler.samples._bank;
 
 import java.io.File;
-import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -259,27 +257,27 @@ public class _Bank implements Serializable, IsRoot, IsPersistent, Storage {
 
 	
 	@_Injected
-	public Long __postvayler_getId() {
+	public final Long __postvayler_getId() {
 		return __postvayler_Id;
 	}
 
 	@_Injected
-	public IsPersistent __postvayler_get(Long id) {
+	public final IsPersistent __postvayler_get(Long id) {
 		return __postvayler_pool.get(id);
 	}
 
 	@_Injected
-	public Long __postvayler_put(IsPersistent persistent) {
+	public final Long __postvayler_put(IsPersistent persistent) {
 		return __postvayler_pool.put(persistent);
 	}
 
 	@_Injected
-	public void __postvayler_onRecoveryCompleted() {
+	public final void __postvayler_onRecoveryCompleted() {
 		__postvayler_pool.switchToWeakValues();
 	}
 	
 	@_Injected
-	public File takeSnapshot() throws Exception {
+	public final File takeSnapshot() throws Exception {
 		if (! __Postvayler.isBound())
 		   throw new NotPersistentException("no postvayler context found");
 		

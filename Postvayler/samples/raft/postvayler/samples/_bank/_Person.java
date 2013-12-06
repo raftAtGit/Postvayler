@@ -93,7 +93,7 @@ public class _Person implements Serializable, IsPersistent {
 	}
 
 	@_Injected 
-	public Long __postvayler_getId() {
+	public final Long __postvayler_getId() {
 		return __postvayler_Id;
 	}
 	

@@ -1,11 +1,17 @@
 package raft.postvayler.compiler;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.net.URI;
+import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -27,9 +33,10 @@ import javassist.bytecode.SignatureAttribute;
 import raft.postvayler.Persist;
 import raft.postvayler.Persistent;
 import raft.postvayler.Storage;
+import raft.postvayler.Synch;
+import raft.postvayler.impl.Context;
 import raft.postvayler.impl.IsPersistent;
 import raft.postvayler.impl.IsRoot;
-import raft.postvayler.inject.IsLocator;
 import raft.postvayler.inject.Key;
 
 /**
@@ -109,26 +116,10 @@ public class Compiler {
 		
 		CtClass rootClazz = pool.get(rootClass);
 		contextClass = pool.makeClass(rootClazz.getPackageName() + ".__Postvayler");
+		contextClass.setSuperclass(pool.get(Context.class.getName()));
 		
-		contextClass.addField(CtField.make("private static " + contextClass.getName() + " instance;", contextClass));
-		
-		contextClass.addField(CtField.make("public final org.prevayler.Prevayler prevayler;", contextClass));
-		contextClass.addField(CtField.make("public final " + rootClass + " root;", contextClass));
-		contextClass.addField(CtField.make("public final ClassCache classCache;", contextClass));
-		contextClass.addField(CtField.make("public final BooleanThreadLocal transactionStatus = new BooleanThreadLocal();", contextClass));
-		
-		contextClass.addConstructor(CtNewConstructor.make("public __Postvayler(org.prevayler.Prevayler prevayler, " + rootClass + " root) {" +
-				"synchronized (" + contextClass.getName() + ".class) {" +
-				"  if (instance != null) throw new IllegalStateException(\"an instance already created\");" +
-				"    this.prevayler = prevayler;" + 
-				"    this.root = root;" + 
-				"    this.classCache = new ClassCache(\"" + rootClass + "\");" +
-				"    instance = this;" + 
-				"}" + 
-				"}", contextClass));
-		
-		contextClass.addMethod(CtNewMethod.make("public static final " + contextClass.getName() + " getInstance() {return instance;}", contextClass)); 
-		contextClass.addMethod(CtNewMethod.make("public static final boolean isBound() {return (instance != null);}", contextClass)); 
+		contextClass.addField(CtField.make("public static final Class rootClass = " + rootClass + ".class;", contextClass));
+		contextClass.addConstructor(CtNewConstructor.make(createSource("Context.init.java.txt", rootClass), contextClass));
 		
 		contextClass.writeFile(getClassWriteDir(rootClazz));
 	}
@@ -158,8 +149,12 @@ public class Compiler {
 		}
 		
 		clean(clazz);
+		
 		injectInterfaces(clazz);
 		
+		addToPool(clazz);
+		
+
 		
 		for (CtField field : clazz.getDeclaredFields()) {
 			System.out.println("field: " + field);
@@ -184,23 +179,17 @@ public class Compiler {
 			}
 		}
 		
-//		// loop once to check what class requires 
-//		boolean needLocator = false;
-//		for (CtMethod method : clazz.getDeclaredMethods()) {
-//			if (method.getAnnotation(Persist.class) != null)
-//				needLocator = true;
-//		}		
-//		if (needLocator) {
-//			findOrCreateLocator(clazz);
-//		}
-		
-		
 		for (CtMethod method : clazz.getDeclaredMethods()) {
 			System.out.println("method: " + method);
 
-			Persist t = (Persist) method.getAnnotation(Persist.class);
-			if (t != null) {
+			Persist persist = (Persist) method.getAnnotation(Persist.class);
+			if (persist != null) {
 				createTransaction(method);
+			}
+
+			Synch synch = (Synch) method.getAnnotation(Synch.class);
+			if (synch != null) {
+				createSynch(method);
 			}
 		}
 		
@@ -253,7 +242,7 @@ public class Compiler {
 	}
 
 	private void injectInterfaces(CtClass clazz) throws Exception {
-		if (rootClass.equals(clazz.getName())) { 
+		if (rootClass.equals(clazz.getName())) {
 			if (!implementedInterface(clazz, IsRoot.class)) {
 				clazz.addInterface(pool.get(IsRoot.class.getName()));
 				System.out.println("added IsRoot interface to " + clazz.getName());
@@ -267,185 +256,50 @@ public class Compiler {
 			System.out.println("added Pool __postvayler_pool field to " + clazz.getName());
 
 			// implement the IsRoot interface
-			clazz.addMethod(CtNewMethod.make("public IsPersistent __postvayler_get(Long id) { return __postvayler_pool.get(id);}", clazz));
+			clazz.addMethod(CtNewMethod.make("public final IsPersistent __postvayler_get(Long id) { return __postvayler_pool.get(id);}", clazz));
 			System.out.println("added IsPersistent __postvayler_get(Long id) method to " + clazz.getName());
 			
-			clazz.addMethod(CtNewMethod.make("public void __postvayler_put(IsPersistent persistent) { __postvayler_pool.put(persistent);}", clazz));
+			clazz.addMethod(CtNewMethod.make("public final Long __postvayler_put(IsPersistent persistent) { return __postvayler_pool.put(persistent);}", clazz));
 			System.out.println("added void __postvayler_put(IsPersistent persistent) method to " + clazz.getName());
 			
-//			clazz.addMethod(CtNewMethod.make("public Long __postvayler_getNextId() { return __postvayler_pool.getNextId();}", clazz));
-//			System.out.println("added Long __postvayler_getNextId() method to " + clazz.getName());
+			clazz.addMethod(CtNewMethod.make("public final void __postvayler_onRecoveryCompleted() { __postvayler_pool.switchToWeakValues();}", clazz));
+			System.out.println("added void __postvayler_onRecoveryCompleted() method to " + clazz.getName());
 			
-			// add code to add this object to pool
-			for (CtConstructor constructor : clazz.getDeclaredConstructors()) {
-				constructor.insertAfter("__postvayler_put(this);");
-			}
-			System.out.println("added __postvayler_put(this) call to " + clazz.getDeclaredConstructors().length + " constructor(s) for class " + clazz.getName());
-			
-			
-			// TODO inject Storage interface
-			String source = "public java.io.File takeSnapshot() throws Exception { \n" +
-					"if (!" + contextClass.getName() + ".isBound()) \n" +
-					"   throw new NotPersistentException(\"no postvayler context found\");" +
-					"return " + contextClass.getName() + ".getInstance().prevayler.takeSnapshot();" +
-					"}";
+			String source = createSource("IsRoot.takeSnapshot.java.txt", contextClass.getName());
 			System.out.println(source);
 			clazz.addMethod(CtNewMethod.make(source, clazz));
 			System.out.println("added public File takeSnapshot() method to " + clazz.getName());
-		}
+			
+		} // if root class
 
 		if (!implementedInterface(clazz, IsPersistent.class)) {
 			
 			if (rootClass.equals(clazz.getName())) {
-				clazz.addField(CtField.make("private final Long __postvayler_Id = __postvayler_getNextId();", clazz));
+				clazz.addField(CtField.make("private final Long __postvayler_Id = __postvayler_pool.put(this);", clazz));
 				System.out.println("added Long __postvaylerId field to " + clazz.getName());
 				
 			} else {
 				clazz.addInterface(pool.get(IsPersistent.class.getName()));
 				System.out.println("added IsPersistent interface to " + clazz.getName());
 				
-				String source = 
-						"private static final Long __postvayler_createId() { \n" +
-							contextClass.getName() + " context = " + contextClass.getName() + ".getInstance(); \n" +
-							"if (!context.isBound()) { \n" +
-							"  System.out.println(\"postvayler context not bound, no id will be given to object\"); \n" + // TODO log
-							"  return null; \n" + 
-							"} \n" +
-							// __postvayler_getNextId should also should be wrapped in a transaction
-//							"synchronized (" + contextClass.getName() + ".getInstance().root) \n {" +
-							"    if (context.transactionStatus.isSet()) { \n" +
-							// we already in a transaction, get next id plain
-							"        return context.root.__postvayler_getNextId(); \n" +
-							"    } else { \n" +
-//							"        synchronized (context.root) \n {" + 
-							"        context.transactionStatus.set(true); \n" +  
-							"        try { \n" +
-							"           Long id = (Long) context.prevayler.execute(new GetNextIdTransaction()); \n" +
-							"           System.out.println(\"created id \" + id + \" for object " + clazz.getName() + "\"); \n" +
-							"           return id; \n" + 
-							"        } finally { \n" +
-							"           context.transactionStatus.set(false); \n" +  
-							"        } \n" + 
-//							"        } // synchronized \n" + // 
-							"    } \n" +
-//							"Long id = (Long) context.prevayler.execute(new GetNextIdTransaction()); \n" +
-//							"System.out.println(\"created id \" + id + \" for object " + clazz.getName() + "\"); \n" +
-//							"return id; \n" + 
-//							"} // synchronized \n" +
-						"}";
-				System.out.println(source);
-				clazz.addMethod(CtNewMethod.make(source, clazz));
-				System.out.println("added Long __postvayler_createId method to " + clazz.getName());
-				
-				clazz.addField(CtField.make("private final Long __postvayler_Id = __postvayler_createId();", clazz));
+				clazz.addField(CtField.make("protected Long __postvayler_Id;", clazz));
 				System.out.println("added Long __postvaylerId field to " + clazz.getName());
-				source = 
-						"private void __postvayler_maybeAddToPool() { \n" +
-							"if (__postvayler_Id != null) { \n" +
-							// get a reference to context
-							contextClass.getName() + " context = " + contextClass.getName() + ".getInstance(); \n" +
-							// __postvayler_put should also should be wrapped in a transaction
-							"    if (context.transactionStatus.isSet()) { \n" +
-							// we already in a transaction, put object plain
-							"        context.root.__postvayler_put(this); \n" +
-							"    } else { \n" +
-//							"        synchronized (context.root) \n {" + 
-							"        context.transactionStatus.set(true); \n" +  
-							"        try { \n" +
-							"           context.prevayler.execute(new PutObjectTransaction(this)); \n" +
-							"        } finally { \n" +
-							"           context.transactionStatus.set(false); \n" +  
-							"        } \n" + 
-//							"        } // synchronized \n" + // 
-							"    } \n" +
-							"} \n" +
-						"}";
-				System.out.println(source);
-				clazz.addMethod(CtNewMethod.make(source, clazz));
-				System.out.println("added void __postvayler_maybeAddToPool() method to " + clazz.getName());
-
-				source = 
-						"private static void __postvayler_validateClass(Class clazz) { \n" +
-							"if (" + contextClass.getName() + ".isBound()) { \n" + 
-							"  " + contextClass.getName() + ".getInstance().classCache.validateClass(clazz); \n" +
-							"} \n" +
-						"}";
-				System.out.println(source);
-				clazz.addMethod(CtNewMethod.make(source, clazz));
-				System.out.println("added void __postvayler_maybeAddToPool() method to " + clazz.getName());
 				
-				// add code to add this object to pool
+				String validateSource = createSource("IsPersistent.init.validateClass.java.txt", contextClass.getName());
+						
+				// add code to validate runtime type
 				for (CtConstructor constructor : clazz.getDeclaredConstructors()) {
-					// validate call should be before maybeAddToPool
-					constructor.insertAfter("__postvayler_validateClass(getClass());");
-					constructor.insertAfter("__postvayler_maybeAddToPool();");
+					// TODO optimization: omit validate call if there is a call to this(constructor) 
+					constructor.insertAfter(validateSource);
+					System.out.println("added validateClass call to " + constructor.getLongName());
 				}
-				System.out.println("added __postvayler_validateClass(getClass()) call to " + clazz.getDeclaredConstructors().length + " constructor(s) for class " + clazz.getName());
-				System.out.println("added __postvayler_maybeAddToPool() call to " + clazz.getDeclaredConstructors().length + " constructor(s) for class " + clazz.getName());
 			}
 			
 			// implement the IsPersistent interface
-			clazz.addMethod(CtNewMethod.make("public Long __postvayler_getId() { return __postvayler_Id;}", clazz));
+			clazz.addMethod(CtNewMethod.make("public final Long __postvayler_getId() { return __postvayler_Id;}", clazz));
 			System.out.println("added Long __postvayler_getId() method to " + clazz.getName());
-
 		}
 	}
-
-	
-//	private void findOrCreateLocator(CtClass clazz) throws Exception {
-//		List<CtMethod> foundMethods = new LinkedList<CtMethod>();
-//		
-//		for (CtMethod method : clazz.getDeclaredMethods()) {
-//			if (method.getAnnotation(IsLocator.class) != null) {
-//				if (method.getReturnType() != pool.get(Locator.class.getName()))
-//					throw new CompileException("return type of @IsLocator method should be " + Locator.class.getName() + " in " + method.getLongName());
-//				// TODO check generic types of return type Locator
-//				if (method.getParameterTypes().length > 0)
-//					throw new CompileException("@IsLocator method cannot have arguments " + method.getLongName());
-//				
-//				foundMethods.add(method);
-//			}
-//		}
-//		if (foundMethods.size() > 1)
-//			throw new CompileException("multiple @IsLocator methods in class " + clazz.getName());
-//		
-//		if (clazz.getName().equals(rootClass)) {
-//			if (!foundMethods.isEmpty()) {
-//				// TODO log
-//				System.err.println("warning: root class " + rootClass + " has a @IsLocator method, this is not necessary and it wont be used.");
-//			} 
-//			String source = 
-//					"private static final Locator __postvayler_locator() {" +
-//					"  return new Locators$Identity();" +
-//					"}"; 
-//			System.out.println(source);
-//			clazz.addMethod(CtNewMethod.make(source, clazz));
-//			locatorMethods.put(clazz.getName(), "__postvayler_locator");
-//			
-//		} else {
-//		
-//			if (foundMethods.isEmpty()) {
-//				// TODO auto locator
-//				throw new CompileException("no @IsLocator method in class " + clazz.getName());
-//			}
-//			locatorMethods.put(clazz.getName(), foundMethods.get(0).getName());
-//			
-//		}
-//		
-//		// create validate locator method
-//		String source = 
-//				"private final void __postvayler_validate_locator(Locator locator) { \n" +
-//				"   Locator copy = (Locator) org.prevayler.foundation.DeepCopier#deepCopy(locator); \n" +
-//				"   " + contextClass.getName() + " context = " + contextClass.getName() + ".getInstance(); \n" +
-//				"   Object located = copy.findObject(context.root); \n" +
-//				"   if (located == null) \n" +
-//				"       throw new IllegalStateException(\"copy of locator returned a null object, are you suffering from Baptism problem?\"); \n" +
-//				"   if (located != this) \n" +
-//				"       throw new IllegalStateException(\"copy of locator returned a different instance, are you suffering from Baptism problem?\"); \n" +
-//				"}";
-//		System.out.println(source);
-//		clazz.addMethod(CtMethod.make(source, clazz));
-//	}
 
 	/** checks if given class or its Persistent superclasses implements the given interface.
 	 * that is, even if super class implements interface but not Persistent, this method will return false;  
@@ -466,6 +320,23 @@ public class Compiler {
 		return false;
 	}
 
+	/** injects code to constructors to put this object into pool */
+	private void addToPool(CtClass clazz) throws Exception {
+		if (clazz.getName().endsWith(rootClass))
+			return;
+		
+		if (Modifier.isAbstract(clazz.getModifiers()))
+			return;
+		
+		String source = createSource("IsPersistent.init.putToPool.java.txt", contextClass.getName(), clazz.getName());
+		
+		for (CtConstructor constructor : clazz.getDeclaredConstructors()) {
+			// TODO optimization: omit validate call if there is a call to this(constructor) 
+			constructor.insertAfter(source);
+			System.out.println("added add to pool call to " + constructor.getLongName());
+		}
+	}
+	
 	private void checkTransientFieldAnnotations(CtField field) throws Exception{
 		if (field.getAnnotation(Key.class) != null) 
 			throw new CompileException("transient field canoot be @Key field: " + field);
@@ -505,85 +376,56 @@ public class Compiler {
 
 	private void createTransaction(CtMethod method) throws Exception {
 		if (Modifier.isAbstract(method.getModifiers())) 
-			throw new CompileException("abstract method cannot be @Transaction " + method.getLongName());
+			throw new CompileException("abstract method cannot be @Persist " + method.getLongName());
 
 		CtMethod copy = CtNewMethod.copy(method, method.getDeclaringClass(), null);
 		String newName = "__postvayler__" + method.getName();
-		System.out.println("renaming Transaction method to: " + newName);
 		copy.setName(newName);
 		makePrivate(copy);
 		method.getDeclaringClass().addMethod(copy);
+		System.out.println("renamed " + method.getLongName() + " to " + copy.getLongName());
 		
 		boolean hasReturnType = (CtClass.voidType != method.getReturnType());
-		String origCallStatement = hasReturnType 
-				? "return " + newName + "($$); \n" 
-				: newName + "($$); return; \n";   
 		
 		// TODO Unboxing for primitive return types
-		
-		String txCallStatement = hasReturnType 
-				? "return (" + method.getReturnType().getName() + ") context.prevayler.execute(new MethodTransactionWithQuery((IsPersistent)this, method, $args)); \n" 
-				: "context.prevayler.execute(new MethodTransaction((IsPersistent)this, method, $args)); \n";
-		
-//		String locatorMethod = locatorMethods.get(method.getDeclaringClass().getName());
-//		assert (locatorMethod != null);
-		
-		String source = "{ \n" +
-				"System.out.println(\"" + method.getLongName() + "\"); \n\n" + // TODO log
-				
-				"if (!" + contextClass.getName() + ".isBound()) { \n" +
-				"  System.out.println(\"postvayler context not bound, proceeding to original method " + copy.getLongName() + "\"); \n" + // TODO log
-				"  " + origCallStatement + 
-				"} \n" + 
-				
-				// get a reference to context
-				contextClass.getName() + " context = " + contextClass.getName() + ".getInstance(); \n" +
-				
-//				"synchronized (context.root) { \n" +
-				"    if (context.transactionStatus.isSet()) { \n" +
-				"        System.out.println(\"already in transaction, proceeding to original method " + copy.getLongName() + "\"); \n" + // TODO log
-				"        " + origCallStatement + 
-				"    } \n" +
-					  
-				"    MethodWrapper method = new MethodWrapper(\"" + newName + "\", $class, $sig" + "); \n" + // TODO do not use $sig, it requires javassist.runtime.Desc at runtime  
-//				"    MethodWrapper method = new MethodWrapper(\"" + newName + "\", $class, " + getParams(method) + "); \n" +  
-				
-//				"    Locator locator = " + locatorMethod + "(); \n\n" +
-//				"    if (locator == null) { \n" +
-//				"        System.out.println(\"locator method " + locatorMethod + " returned null, proceeding to original method " + copy.getLongName() + "\"); \n" + // TODO log
-//				"        " + origCallStatement + 
-//				"    } \n" +
-//				"    __postvayler_validate_locator(locator); \n" +
-//				"    if (!__postvayler_validate_locator(locator)) { \n" +
-//				"        System.out.println(\"locator returned null, proceeding to original method " + copy.getLongName() + "\"); \n" + // TODO log
-//				"        " + origCallStatement + 
-//				"    } \n" +  	 
-				
-				"    context.transactionStatus.set(true); \n" +  
-				"    try { \n" +
-				"        System.out.println(\"running prevayler transaction for " + copy.getLongName() + "\"); \n" +
-				"        " + txCallStatement + 
-				"    } finally { \n" +
-				"       context.transactionStatus.set(false); \n" +  
-				"    } \n" + 
-				
-				
-//				"} // synchronized \n" +
-				
 
-				"}";
-		
-		
-		
-		
-		// TODO make new method source depending on returun type
+		String source = hasReturnType 
+				? createSource("IsPersistent.transactionWithQuery.java.txt", contextClass.getName(), method.getName(), method.getReturnType().getName()) 
+				: createSource("IsPersistent.transaction.java.txt", contextClass.getName(), method.getName());
 		
 		System.out.println(source);
 		method.setBody(source);
 		method.getMethodInfo().rebuildStackMap(pool);
 		
-		// TODO remove @Transaction? from both source and copy?
+		// TODO remove @Persist? from both source and copy?
 	}
+	
+	private void createSynch(CtMethod method) throws Exception {
+		if (Modifier.isAbstract(method.getModifiers())) 
+			throw new CompileException("abstract method cannot be @Synch " + method.getLongName());
+
+		CtMethod copy = CtNewMethod.copy(method, method.getDeclaringClass(), null);
+		String newName = "__postvayler__" + method.getName();
+		copy.setName(newName);
+		makePrivate(copy);
+		method.getDeclaringClass().addMethod(copy);
+		System.out.println("renamed " + method.getLongName() + " to " + copy.getLongName());
+		
+		boolean hasReturnType = (CtClass.voidType != method.getReturnType());
+		
+		// TODO Unboxing for primitive return types
+
+		String source = hasReturnType 
+				? createSource("IsPersistent.synch.java.txt", contextClass.getName(), method.getName()) 
+				: createSource("IsPersistent.synchVoid.java.txt", contextClass.getName(), method.getName());
+		
+		System.out.println(source);
+		method.setBody(source);
+		method.getMethodInfo().rebuildStackMap(pool);
+		
+		// TODO remove @Persist? from both source and copy?
+	}
+	
 	// TODO this does not correctly handle arrays
 	private String getParams(CtMethod method) throws Exception {
 		List<String> params = new ArrayList<String>();
@@ -637,5 +479,36 @@ public class Compiler {
 	private static String getClassNameForJavaIdentifier(String className) {
 		return className.replace('.', '_').replace('$', '_');
 	}
+
+	private String createSource(String fileName, Object... arguments) throws Exception {
+		return MessageFormat.format(readFile(fileName), arguments);
+	}
 	
+	final Map<String, String> fileCache = new HashMap<String, String>();
+	
+	private String readFile(String fileName) throws Exception {
+		String cached = fileCache.get(fileName);
+		if (cached != null)
+			return cached;
+		
+		InputStream in = getClass().getResourceAsStream(fileName);
+		if (in == null)
+			throw new FileNotFoundException(fileName);
+		
+		try {
+			String content = new String();
+			
+			BufferedReader reader = new BufferedReader(new InputStreamReader(in));
+			String line = null;
+			while ((line = reader.readLine()) != null) {
+				content += line + "\n";
+			}
+			fileCache.put(fileName, content);
+			return content;
+			
+		} finally {
+			in.close();
+		}
+		
+	}
 }
