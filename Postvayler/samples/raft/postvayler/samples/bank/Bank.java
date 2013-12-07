@@ -22,7 +22,8 @@ public class Bank implements Serializable {
 	private final Map<Integer, Customer> customers = new TreeMap<Integer, Customer>();
 	private final Map<Integer, Account> accounts = new TreeMap<Integer, Account>();
 
-	// TODO tmp
+	// TODO remove later: since parsing generic type arguments and package scan is not implemented yet, we tell Postvayler compiler,
+	// to instrument Customer class by holding a direct reference to it.
 	private Customer aCustomer;
 	
 	private int lastCustomerId = 1;

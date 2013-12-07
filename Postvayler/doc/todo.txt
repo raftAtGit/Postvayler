@@ -3,6 +3,7 @@ I'm planning to scan all packages of all reached @Persistent classes. this still
 classes is instrumented (some one can extend a @Persistent class in a totally different package), but there is a run time check to catch that condition
 * remove runtime dependency to Javassist. at the moment $sig in injected code requires javassist.runtime.Desc, god knows why. 
 * add unboxing to injected code. at the moment primitive types cannot be returned from @Persist methods  
+* add a clock facility to be used instead of System.currentTimeMillis()
 * proper encapsulation. at the moment lots of things is public and anyone can crash the system with a simple cast and java call
 * more tests
 * maybe a better trick to prevent GC
@@ -12,5 +13,6 @@ classes is instrumented (some one can extend a @Persistent class in a totally di
 * support for spring dependency injection (at least injecting root as a bean to other spring beans)
 * some documentation
 * adapt prevayler samples to postvayler
+* runtime bytecode injection via javaagent
 * what else?
 

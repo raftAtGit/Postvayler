@@ -20,7 +20,10 @@ public class Customer extends Person {
 	private int id;
 
 	private final Map<Integer, Account> accounts = new TreeMap<Integer, Account>();
-	private Account account; // TODO tmp
+	
+	// TODO remove later: since parsing generic type arguments and package scan is not implemented yet, we tell Postvayler compiler,
+	// to instrument Account class by holding a direct reference to it.
+	private Account account; // 
 	
 	public Customer(String name) {
 		super(name);
