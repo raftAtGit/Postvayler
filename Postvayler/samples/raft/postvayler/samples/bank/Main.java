@@ -11,8 +11,8 @@ import raft.postvayler.impl.Context;
 public class Main {
 
 	public static void main(String[] args) throws Exception {
-		doStressTest();
-//		runEqualityTest();
+//		doStressTest();
+		runEqualityTest();
 	}
 	
 	/** IMPORTANT: this test must be run with persist directory empty: persist/raft.postvayler.samples.bank.Bank/ */
@@ -57,6 +57,7 @@ public class Main {
 	
 	public static void doStressTest() throws Exception {
 		final Bank bank = Postvayler.create(Bank.class);
+//		((Storage) bank).takeSnapshot();
 		
 		List<Thread> threads = new ArrayList<Thread>();
 		
@@ -71,9 +72,10 @@ public class Main {
 				};
 			});
 		}
+		final boolean[] doGC = new boolean[] {true};
 		new Thread() {
 			public void run() {
-				while (true) {
+				while (doGC[0]) {
 					System.gc();
 					try {
 						Thread.sleep(1000);
@@ -88,6 +90,7 @@ public class Main {
 		for (Thread t : threads) {
 			t.join();
 		}
+		doGC[0] = false;
 		System.out.println("all threads completed");
 		
 	}
@@ -190,7 +193,7 @@ public class Main {
 		
 		for (int action = 0; action < count; action++) {
 			
-			int next = random.nextInt(12);
+			int next = random.nextInt(13);
 			
 			switch (next) {
 			 case 0: {
@@ -205,13 +208,19 @@ public class Main {
 				 break;
 			 	}
 			 case 2: {
+				 // create a detached customer
+				 Customer customer = new Customer("add:" + random.nextInt());
+				 customer.setPhone("phone" + random.nextInt());
+				 break;
+			 	}
+			 case 3: {
 				 // create customer via bank and set phone
 				 Customer customer = bank.createCustomer("create:" + random.nextInt());
 				 customer.setPhone("phone:" +  + random.nextInt());
 				 break;
 			 	}
 			 // set phones of some customers
-			 case 3: {
+			 case 4: {
 				 List<Customer> customers = bank.getCustomers();
 				 if (customers.isEmpty())
 					 break;
@@ -222,7 +231,7 @@ public class Main {
 				 break;
 			 	}
 			 // remove some customers
-			 case 4: {
+			 case 5: {
 				 List<Customer> customers = bank.getCustomers();
 				 if (customers.isEmpty())
 					 break;
@@ -233,17 +242,17 @@ public class Main {
 				 break;
 			 	}
 			 // create some accounts
-			 case 5: {
+			 case 6: {
 				 bank.createAccount();
 				 break;
 			 }
 			 // create some accounts and deposit money
-			 case 6: {
+			 case 7: {
 				 bank.createAccount().deposit(10 + random.nextInt(50));
 				 break;
 			 }
 			 // create some accounts and add to customers
-			 case 7: {
+			 case 8: {
 				 List<Customer> customers = bank.getCustomers();
 				 if (customers.isEmpty())
 					 break;
@@ -257,10 +266,10 @@ public class Main {
 				 break;
 			 	}
 			 // transfer some money
-			 case 8: 
 			 case 9: 
 			 case 10: 
-			 case 11: {
+			 case 11: 
+			 case 12: {
 				 List<Account> accounts = bank.getAccounts();
 				 if (accounts.size() < 2)
 					 break;

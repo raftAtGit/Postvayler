@@ -150,6 +150,7 @@ public class WeakValueHashMap<K,V> extends AbstractMap<K,V> {
 		WeakValue<V> valueRef;
 		while ( (valueRef = (WeakValue<V>) gcQueue.poll()) != null ) {
 			references.remove(valueRef.getKey());
+//			System.out.println("-removed garbage collected " + valueRef.getKey());
 		}
 	}
 

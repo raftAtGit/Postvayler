@@ -1,2 +1,16 @@
-* combine GetNextId and PutObject transactions
+* scan all reachable @Persistent classes. at the moment generic parameters (like collection types) is not parsed. 
+I'm planning to scan all packages of all reached @Persistent classes. this still does not guarantee all required 
+classes is instrumented (some one can extend a @Persistent class in a totally different package), but there is a run time check to catch that condition
+* remove runtime dependency to Javassist. at the moment $sig in injected code requires javassist.runtime.Desc, god knows why. 
+* add unboxing to injected code. at the moment primitive types cannot be returned from @Persist methods  
+* proper encapsulation. at the moment lots of things is public and anyone can crash the system with a simple cast and java call
+* more tests
+* maybe a better trick to prevent GC
+* cleanup and optimize compiler code
+* ant build.xml (or maven?)
+* an ant task for compiler
+* support for spring dependency injection (at least injecting root as a bean to other spring beans)
+* some documentation
+* adapt prevayler samples to postvayler
+* what else?
 

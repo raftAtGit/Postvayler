@@ -22,6 +22,8 @@ public class Utils {
 	
 	/** replaces {@link IsPersistent} arguments with {@link Reference} */
 	static Object[] referenceArguments(Object[] arguments) {
+		Object[] result = new Object[arguments.length];
+		
 		for (int i = 0; i < arguments.length; i++) {
 			Object arg = arguments[i];
 			if (arg instanceof IsPersistent) {
@@ -29,10 +31,12 @@ public class Utils {
 //				IsPersistent stored = root.__postvayler_get(persistent.__postvayler_getId());
 //				if (stored != persistent)
 //					throw new Error("internal error"); // we throw error to halt Prevayler
-				arguments[i] = new Reference(persistent);
+				result[i] = new Reference(persistent);
+			} else {
+				result[i] = arg;
 			}
 		}
-		return arguments;
+		return result;
 	}
 	
 	/** replaces {@link Reference} arguments with {@link IsPersistent} */

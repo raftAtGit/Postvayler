@@ -26,10 +26,14 @@ public class MethodTransactionWithQuery<R> implements TransactionWithQuery<IsRoo
 	 * @see GCPreventingPrevayler
 	 */  
 	@SuppressWarnings("unused")
-	private transient IsPersistent target;
+	private transient IsPersistent transientTarget;
+	@SuppressWarnings("unused")
+	private transient Object[] transientArguments;
 
 	public MethodTransactionWithQuery(IsPersistent target, MethodCall method, Object[] arguments) {
-		this.target = target;
+		this.transientTarget = target;
+		this.transientArguments = arguments;
+		
 		this.targetId = target.__postvayler_getId();
 		if (targetId == null)
 			throw new NotPersistentException("object has no id, did you create this object before Postvayler is created?\n" + Utils.identityCode(target));
