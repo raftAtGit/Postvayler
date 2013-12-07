@@ -49,7 +49,7 @@ For example, the *addBook(Book)* method in the previous sample becomes something
 ```
 void addBook(Book book) {
   if (! there is Postvayler context) {
-     // no persiatance, just proceed to original method
+     // no persistence, just proceed to original method
      __postvayler_addBook(book);
      return;
   }
@@ -70,7 +70,7 @@ private void __postvayler_addBook(Book book) {
   // the contents of the original addBook method
 }
 ```
-As can been seen, if there is no *Postvayler context* around, the object bahaves like POJO with an ignorable overhead.
+As can been seen, if there is no *Postvayler context* around, the object bahaves like the original POJO with an ignorable overhead.
 
 Constructors of *@Persistent* classes are also instrumented to keep track of of them.
 
