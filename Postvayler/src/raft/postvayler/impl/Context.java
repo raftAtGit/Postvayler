@@ -74,8 +74,6 @@ public abstract class Context {
 		queryStatus.set(bool);
 	}
 	
-	//TODO we have a serious issue here, the object put the pool is a serialized copy, not the object itself
-	// how do we synch it with the actual object attached to root
 	public static final Long put(IsPersistent persistent) {
 		if (instance != null) {
 			if (instance.inTransaction()) {
