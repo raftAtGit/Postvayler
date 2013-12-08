@@ -12,6 +12,10 @@
 		
 		Context context = {0}.getInstance();
 		
+		if (context.inQuery() || context.inTransaction()) '{'
+			return __postvayler__{1} ( $$ );
+		}
+		
 		synchronized ({0}.getInstance().root) '{'
 			context.setInQuery(true);
 		    try '{'

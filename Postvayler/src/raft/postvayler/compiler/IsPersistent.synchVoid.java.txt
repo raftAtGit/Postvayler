@@ -13,6 +13,11 @@
 		
 		Context context = {0}.getInstance();
 		
+		if (context.inQuery() || context.inTransaction()) '{'
+			__postvayler__{1} ( $$ );
+			return;
+		}
+		
 		synchronized ({0}.getInstance().root) '{'
 			context.setInQuery(true);
 		    try '{'
