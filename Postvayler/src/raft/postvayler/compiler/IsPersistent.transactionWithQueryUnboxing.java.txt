@@ -3,7 +3,8 @@
    
 // 0: context class name
 // 1: method original name
-// 2: method return type
+// 2: boxed return type
+// 3: unboxing method
 
 
 '{'
@@ -19,8 +20,9 @@
 		
 		context.setInTransaction(true);
 		try '{'
-			return ( {2} ) context.prevayler.execute(new MethodTransactionWithQuery (
+		    {2} boxed = ( {2} ) context.prevayler.execute(new MethodTransactionWithQuery (
 					this, new MethodCall("__postvayler__{1}", $class, $sig), $args ));
+			return boxed.{3}; 
 		} finally '{'
 			context.setInTransaction(false);
 		}

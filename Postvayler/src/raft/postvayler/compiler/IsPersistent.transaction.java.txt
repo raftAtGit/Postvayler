@@ -17,6 +17,9 @@
 			return;
 		}
 		
+		if (context.inQuery())
+			throw new PersistInSyncException();
+		
 		context.setInTransaction(true);
 		try '{'
 			context.prevayler.execute(new MethodTransaction(

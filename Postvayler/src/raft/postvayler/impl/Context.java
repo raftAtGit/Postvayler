@@ -21,6 +21,12 @@ public abstract class Context {
 		};
 	};
 	
+	private final ThreadLocal<Boolean> queryStatus = new ThreadLocal<Boolean>() {
+		protected Boolean initialValue() {
+			return false;
+		};
+	};
+	
 	static IsRoot recoveryRoot;
 
 	protected Context(Prevayler<IsRoot> prevayler, IsRoot root) {
@@ -58,6 +64,14 @@ public abstract class Context {
 	
 	public void setInTransaction(boolean bool) {
 		transactionStatus.set(bool);
+	}
+	
+	public boolean inQuery() {
+		return queryStatus.get();
+	}
+	
+	public void setInQuery(boolean bool) {
+		queryStatus.set(bool);
 	}
 	
 	//TODO we have a serious issue here, the object put the pool is a serialized copy, not the object itself

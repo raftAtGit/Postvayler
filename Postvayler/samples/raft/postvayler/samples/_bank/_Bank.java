@@ -73,7 +73,7 @@ public class _Bank implements Serializable, IsRoot, IsPersistent, Storage {
 	}
 	
 	@Persist
-	public Integer addCustomer(_Customer customer) throws Exception {
+	public int addCustomer(_Customer customer) throws Exception {
 		if (!__Postvayler.isBound()) 
 			return __postvayler__addCustomer(customer);
 		

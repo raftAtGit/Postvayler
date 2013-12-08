@@ -9,7 +9,7 @@ import java.lang.annotation.Target;
  * 
  * @author r a f t
  */
-@Target({ ElementType.FIELD, ElementType.METHOD } )
+@Target({ ElementType.TYPE, ElementType.FIELD, ElementType.METHOD } )
 public @interface _Injected {
 
 	String value() default "";

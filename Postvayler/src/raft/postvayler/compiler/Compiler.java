@@ -385,19 +385,70 @@ public class Compiler {
 		method.getDeclaringClass().addMethod(copy);
 		System.out.println("renamed " + method.getLongName() + " to " + copy.getLongName());
 		
-		boolean hasReturnType = (CtClass.voidType != method.getReturnType());
-		
-		// TODO Unboxing for primitive return types
-
-		String source = hasReturnType 
-				? createSource("IsPersistent.transactionWithQuery.java.txt", contextClass.getName(), method.getName(), method.getReturnType().getName()) 
-				: createSource("IsPersistent.transaction.java.txt", contextClass.getName(), method.getName());
-		
+		CtClass returnType = method.getReturnType();
+				
+		final String source; 
+		if (returnType == CtClass.voidType) { // no return type
+			source = createSource("IsPersistent.transaction.java.txt", contextClass.getName(), method.getName()); 
+		} else {
+			if (returnType.isPrimitive()) {
+				source = createSource("IsPersistent.transactionWithQueryUnboxing.java.txt", contextClass.getName(), 
+						method.getName(), getBoxingType(returnType), getUnboxingMethod(returnType)); 
+			} else {
+				source = createSource("IsPersistent.transactionWithQuery.java.txt", contextClass.getName(), 
+						method.getName(), returnType.getName()); 
+			}
+		}
+				
 		System.out.println(source);
 		method.setBody(source);
 		method.getMethodInfo().rebuildStackMap(pool);
 		
 		// TODO remove @Persist? from both source and copy?
+	}
+
+	private String getBoxingType(CtClass primitive) {
+		if (primitive == CtClass.booleanType)
+			return Boolean.class.getName();
+		if (primitive == CtClass.byteType)
+			return Byte.class.getName();
+		if (primitive == CtClass.charType)
+			return Character.class.getName();
+		if (primitive == CtClass.doubleType)
+			return Double.class.getName();
+		if (primitive == CtClass.floatType)
+			return Float.class.getName();
+		if (primitive == CtClass.intType)
+			return Integer.class.getName();
+		if (primitive == CtClass.longType)
+			return Long.class.getName();
+		if (primitive == CtClass.shortType)
+			return Short.class.getName();
+		
+		throw new AssertionError("unknown primitive: " + primitive.getName());
+	}
+
+	
+	private String getUnboxingMethod(CtClass primitive) {
+		
+		if (primitive == CtClass.booleanType)
+			return "booleanValue()";
+		if (primitive == CtClass.byteType)
+			return "byteValue()";
+		if (primitive == CtClass.charType)
+			return "charValue()";
+		if (primitive == CtClass.doubleType)
+			return "doubleValue()";
+		if (primitive == CtClass.floatType)
+			return "floatValue()";
+		if (primitive == CtClass.intType)
+			return "intValue()";
+		if (primitive == CtClass.longType)
+			return "longValue()";
+		if (primitive == CtClass.shortType)
+			return "shortValue()";
+		
+		throw new AssertionError("unknown primitive: " + primitive.getName());
 	}
 	
 	private void createSynch(CtMethod method) throws Exception {

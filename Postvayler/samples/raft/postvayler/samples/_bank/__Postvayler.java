@@ -9,6 +9,7 @@ import raft.postvayler.impl.IsRoot;
  * 
  * @author hakan eryargi (r a f t)
  */
+@_Injected
 public class __Postvayler extends Context {
 
 	public __Postvayler(Prevayler<IsRoot> prevayler, _Bank root) {

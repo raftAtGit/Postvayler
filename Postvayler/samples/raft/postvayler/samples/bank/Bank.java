@@ -39,7 +39,7 @@ public class Bank implements Serializable {
 	}
 	
 	@Persist
-	public Integer addCustomer(Customer customer) {
+	public int addCustomer(Customer customer) {
 		customer.setId(lastCustomerId++);
 		customers.put(customer.getId(), customer);
 		return customer.getId();

@@ -2,8 +2,9 @@
 I'm planning to scan all packages of all reached @Persistent classes. this still does not guarantee all required 
 classes is instrumented (some one can extend a @Persistent class in a totally different package), but there is a run time check to catch that condition
 * remove runtime dependency to Javassist. at the moment $sig in injected code requires javassist.runtime.Desc, god knows why. 
-* add unboxing to injected code. at the moment primitive types cannot be returned from @Persist methods  
 * add a clock facility to be used instead of System.currentTimeMillis()
+* remove previously injected code when compiler is re-run. at the moment the injected methods and fields are removed 
+but the code injected into constructors is not removed. also field initializers is not removed due to a Javaassist bug: https://issues.jboss.org/browse/JASSIST-140
 * proper encapsulation. at the moment lots of things is public and anyone can crash the system with a simple cast and java call
 * more tests
 * maybe a better trick to prevent GC

@@ -11,7 +11,14 @@
 			return;
 		}
 		
+		Context context = {0}.getInstance();
+		
 		synchronized ({0}.getInstance().root) '{'
-			__postvayler__{1} ( $$ );
+			context.setInQuery(true);
+		    try '{'
+				__postvayler__{1} ( $$ );
+			} finally '{'
+				context.setInQuery(false);
+			}
 		}
 }
