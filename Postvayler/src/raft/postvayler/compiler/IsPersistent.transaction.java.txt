@@ -18,7 +18,7 @@
 		}
 		
 		if (context.inQuery())
-			throw new PersistInSyncException();
+			throw new PersistInSynchException();
 		
 		context.setInTransaction(true);
 		try '{'

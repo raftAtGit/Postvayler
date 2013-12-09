@@ -375,6 +375,8 @@ public class Compiler {
 	}
 
 	private void createTransaction(CtMethod method) throws Exception {
+		if (method.getAnnotation(Synch.class) != null)
+			throw new CompileException("@Synch and @Persist cannot be on same method" + method.getLongName());
 		if (Modifier.isAbstract(method.getModifiers())) 
 			throw new CompileException("abstract method cannot be @Persist " + method.getLongName());
 
@@ -452,6 +454,8 @@ public class Compiler {
 	}
 	
 	private void createSynch(CtMethod method) throws Exception {
+		if (method.getAnnotation(Persist.class) != null)
+			throw new CompileException("@Synch and @Persist cannot be on same method" + method.getLongName());
 		if (Modifier.isAbstract(method.getModifiers())) 
 			throw new CompileException("abstract method cannot be @Synch " + method.getLongName());
 

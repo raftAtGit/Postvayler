@@ -5,11 +5,11 @@ package raft.postvayler;
  * 
  * @author r a f t
  */
-public class PersistInSyncException extends RuntimeException {
+public class PersistInSynchException extends RuntimeException {
 
 	private static final long serialVersionUID = 1L;
 
-	public PersistInSyncException() {
+	public PersistInSynchException() {
 		super();
 	}
 

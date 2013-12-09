@@ -16,7 +16,7 @@
 			return __postvayler__{1} ( $$ );
 		
 		if (context.inQuery())
-			throw new PersistInSyncException();
+			throw new PersistInSynchException();
 		
 		context.setInTransaction(true);
 		try '{'
