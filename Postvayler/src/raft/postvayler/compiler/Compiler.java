@@ -5,6 +5,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.PrintStream;
 import java.net.URI;
 import java.text.MessageFormat;
 import java.util.ArrayList;
@@ -12,11 +13,14 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.TreeSet;
 
 import javassist.ClassPool;
@@ -30,6 +34,7 @@ import javassist.CtNewMethod;
 import javassist.Modifier;
 import javassist.NotFoundException;
 import javassist.bytecode.SignatureAttribute;
+import javassist.bytecode.SignatureAttribute.ObjectType;
 import raft.postvayler.Persist;
 import raft.postvayler.Persistent;
 import raft.postvayler.Storage;
@@ -70,7 +75,7 @@ public class Compiler {
 	public static void main(String[] args) throws Exception {
 		String rootClass = args[0];
 		
-		Compiler compiler = new Compiler(rootClass, "./bin");
+		Compiler compiler = new Compiler(rootClass);
 		compiler.run();
 	}
 	
@@ -81,12 +86,14 @@ public class Compiler {
 	
 	private final ClassPool pool;
 	
-	private final Set<String> processedClasses = new TreeSet<String>();
-	private final Set<String> processedPackages = new TreeSet<String>();
+	private final Set<String> processedClasses = new HashSet<String>();
 	
+	private final Set<String> processedPackages = new HashSet<String>();
 	private final Set<String> packageQueue = new LinkedHashSet<String>();
+
+	private final Set<String> scannedClasses = new HashSet<String>();
 	
-	public Compiler(String rootClass, String outputFolder) {
+	public Compiler(String rootClass) {
 		this.rootClass = rootClass; 
 //		this.outputFolder = outputFolder;
 		
@@ -106,6 +113,21 @@ public class Compiler {
 		if (Modifier.isAbstract(clazz.getModifiers())) 
 			throw new CompileException("root class is Abstract: " + rootClass);
 	
+		if (clazz.getPackageName() == null)
+			throw new CompileException("@Persistent classes in default package is not supported " + clazz.getName());
+		
+		Tree tree = new Tree();
+		createTree(tree, clazz);
+		tree.print(System.out);
+		
+		System.out.println("-- scanned --");
+		for (String scanned : scannedClasses)
+			System.out.println(scanned);
+		
+		System.out.println("-- 	queued --"); 
+		for (String queued : packageQueue)
+			System.out.println(queued);
+		
 		createContextClass();
 		
 		instrumentClass(clazz);
@@ -124,6 +146,136 @@ public class Compiler {
 		contextClass.writeFile(getClassWriteDir(rootClazz));
 	}
 
+	private void createTree(Tree tree, CtClass clazz) throws Exception {
+		String rootDir = getClassWriteDir(clazz);
+		String packageName = clazz.getPackageName();
+		File packageDir = new File(rootDir, packageName.replace('.', '/'));
+		
+		processedPackages.add(packageName);
+		
+		for (String file : packageDir.list()) {
+			if (!file.endsWith(".class"))
+				continue;
+			
+			CtClass cls = pool.get(packageName + "." + file.substring(0, file.length() - 6)); // omit the .class part
+//			processedClasses.add(cls.getName());
+			
+			if (cls.isInterface() || !isPersistent(cls))
+				continue;
+
+			List<CtClass> hierarchy = tree.add(cls);
+			
+			for (CtClass hClass : hierarchy) {
+				// TODO check class is not a inner class. inner classes cannot be created via reflection (sure?)
+				String hPackage = hClass.getPackageName();
+				if (!processedPackages.contains(hPackage))
+					packageQueue.add(hPackage);
+				
+				scanClass(hClass);
+			}
+		}
+	}
+	
+	private void scanClass(CtClass clazz) throws Exception {
+		scannedClasses.add(clazz.getName());
+		scanFields(clazz);
+		
+		String genericSignature = clazz.getGenericSignature();
+		if (genericSignature != null) {
+			SignatureAttribute.ClassSignature classSignature = SignatureAttribute.toClassSignature(genericSignature);
+			for (SignatureAttribute.TypeParameter parameter : classSignature.getParameters()) {
+				// TODO what?
+				scanObjectType(parameter.getClassBound());
+			}
+		}
+	}
+	
+	/** scans class' fields recursively */
+	private void scanFields(CtClass clazz) throws Exception {
+		
+		for (CtField field : clazz.getDeclaredFields()) {
+
+			if (Modifier.isTransient(field.getModifiers())) {
+				checkTransientFieldAnnotations(field);
+				continue;
+			}
+			if (Modifier.isStatic(field.getModifiers())) {
+//				checkStaticFieldAnnotations(field);
+				continue;
+			}
+
+			CtClass fieldClass = field.getType();
+			scanField(clazz, fieldClass);
+			
+			String genericSignature = field.getGenericSignature();
+			if (genericSignature != null) {
+				scanObjectType(SignatureAttribute.toFieldSignature(genericSignature));
+			}
+		}
+	}
+	
+		
+	private void scanObjectType(SignatureAttribute.ObjectType objectType) throws Exception {
+		if (objectType instanceof SignatureAttribute.ClassType) {
+			SignatureAttribute.ClassType classType = (SignatureAttribute.ClassType) objectType;
+			if (!scannedClasses.contains(classType.getName())) {
+				scanClass(pool.get(classType.getName()));
+			}  
+			SignatureAttribute.TypeArgument[] typeArguments = classType.getTypeArguments();
+			if (typeArguments== null)
+				return;
+			
+			for (SignatureAttribute.TypeArgument typeArgument : typeArguments) {
+				SignatureAttribute.ObjectType type = typeArgument.getType();
+				if (type == null) {
+					System.out.println("warning, couldnt determine type arguments of field " + objectType);
+					continue;
+				}
+				scanObjectType(type);
+			}			
+		} else if (objectType instanceof SignatureAttribute.ArrayType) {
+			SignatureAttribute.ArrayType arrayType = (SignatureAttribute.ArrayType) objectType;
+			SignatureAttribute.Type compType = arrayType.getComponentType();
+			if (compType instanceof SignatureAttribute.BaseType) {
+				// primitive
+				return;
+			}
+			if (compType instanceof SignatureAttribute.ObjectType) {
+				scanObjectType((SignatureAttribute.ObjectType) compType);
+			}
+		} else if (objectType instanceof SignatureAttribute.TypeVariable) {
+			// none of out business
+		} else {
+			assert false : objectType;
+		}
+	}
+
+	private void scanField(CtClass declaringClass, CtClass fieldClass) throws Exception {
+		if (fieldClass.isPrimitive() || scannedClasses.contains(fieldClass.getName())) {
+			return;
+		}
+
+		scannedClasses.add(fieldClass.getName());
+				
+		String fieldPackage = fieldClass.getPackageName(); 
+		if (fieldPackage == null) {
+			if (isPersistent(fieldClass))
+				throw new CompileException("@Persistent classes in default package is not supported, " + fieldClass.getName() 
+						+ " @ " + declaringClass.getName() + "." + declaringClass.getName());
+		} else {
+			if (!processedPackages.contains(fieldPackage))
+				packageQueue.add(fieldPackage);
+		} 
+		
+		if (fieldClass.isArray()) {
+			CtClass arrayClass = fieldClass;
+			while (arrayClass.isArray()) {
+				arrayClass = arrayClass.getComponentType();
+			}
+			scanField(declaringClass, arrayClass);
+		}
+	}	
+
 	private void instrumentClass(CtClass clazz) throws Exception {
 		if (processedClasses.contains(clazz.getName()))
 			return;
@@ -136,7 +288,7 @@ public class Compiler {
 		}
 		
 		if (clazz.getPackageName() == null)
-			throw new CompileException("@Persistent classes in default package is not supported");
+			throw new CompileException("@Persistent classes in default package is not supported " + clazz.getName());
 		packageQueue.add(clazz.getPackageName());
 		
 		// start with superclass, so if super class is persistent, IsPersistent and id will be injected into that
@@ -520,6 +672,9 @@ public class Compiler {
 		if (index < 0)
 			throw new IllegalStateException("couldnt find class dir in path " + path);
 		
+		if (!path.startsWith("file:/"))
+			throw new IllegalStateException("class location is not a flat file: " + path);
+		
 		File dir = new File(new URI(path.substring(0, index)));
 //		System.out.println(dir);
 		return dir.getName();
@@ -564,6 +719,97 @@ public class Compiler {
 		} finally {
 			in.close();
 		}
+	}
+
+	/** returns true if this class or any of it's super classes has @Persistent annotation */
+	private static boolean isPersistent(CtClass clazz) throws Exception {
+		CtClass supr = clazz;
+		while (supr != null) {
+			if (supr.hasAnnotation(Persistent.class))
+				return true;
+			supr = supr.getSuperclass();
+		}
+		return false;
+	}
+	
+	private static List<CtClass> getPersistentHierarchy(CtClass clazz) throws Exception {
+		List<CtClass> list = new LinkedList<CtClass>();
 		
+		while (isPersistent(clazz)) {
+			list.add(0, clazz);
+			clazz = clazz.getSuperclass();
+		}
+		return list;
+	}
+	
+	private static class Tree {
+		
+		final Map<String, Node> roots = new TreeMap<String, Node>();
+		
+		List<CtClass> add(CtClass clazz) throws Exception {
+			List<CtClass> hierarchy = getPersistentHierarchy(clazz);
+			
+			CtClass mostSuper = hierarchy.get(0);
+			
+			Node rootNode = roots.get(mostSuper.getName());
+			if (rootNode == null) {
+				rootNode = new Node(mostSuper);
+				roots.put(mostSuper.getName(), rootNode);
+			}
+			
+			rootNode.add(hierarchy);
+			return hierarchy;
+		}
+
+		void print(PrintStream out) {
+			for (Node node : roots.values()) {
+				node.print(out, 0);
+			}
+		}
+
+	}	
+	
+	/** a node in class tree */
+	private static class Node {
+		final CtClass clazz;
+		final Map<String, Node> subClasses = new TreeMap<String, Node>();
+
+		private Node(CtClass clazz) {
+			this.clazz = clazz;
+		}
+
+		void add(List<CtClass> hierarchy) {
+			assert (hierarchy.get(0) == clazz);
+			
+			if (hierarchy.size() == 1)
+				return;
+			
+			CtClass subClass = hierarchy.get(1);
+			Node subNode = subClasses.get(subClass.getName());
+			
+			if (subNode == null) {
+				subNode = new Node(subClass);
+				subClasses.put(subClass.getName(), subNode);
+			}
+			
+			subNode.add(hierarchy.subList(1, hierarchy.size()));
+		}
+		
+		void print(PrintStream out, int indentation) {
+			out.println(indent(indentation) + clazz.getName());
+			
+			for (Node subNode : subClasses.values()) {
+				subNode.print(out, indentation + 4);
+			}
+		}
+
+
+		private String indent(int count) {
+			String s = "";
+			for (int i = 0; i < count; i++) {
+				s += " ";
+			}
+			return s;
+		}
 	}
 }
