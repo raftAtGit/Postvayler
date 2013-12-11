@@ -17,7 +17,7 @@
 			
 				context.setInTransaction(true);
 				try '{'
-					__postvayler_Id = (Long) context.prevayler.execute(new ConstructorTransaction(
+					this.__postvayler_Id = (Long) context.prevayler.execute(new ConstructorTransaction(
 							this, new ConstructorCall( {1}.class, $sig ), $args ));
 				} finally '{'
 					context.setInTransaction(false);
