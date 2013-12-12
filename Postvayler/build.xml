@@ -1,0 +1,118 @@
+<project name="Postvayler" default="build" basedir="." >
+
+	<!-- set global properties for this build -->
+	<target name="init">
+		<property name="src" location="src" />
+		<property name="samples-src" location="samples" />
+		<property name="classes" location="bin"/>
+		<property name="build" location="build"/>
+		<property name="api.dir" location="doc/api" />
+
+        <property name="javadoc.packages" value="lib/javadoc-package-lists/" />
+
+		<mkdir dir="${classes}" />
+		<mkdir dir="${build}" />
+		<mkdir dir="${api.dir}" />
+	</target>
+
+	<path id="classpath">
+		<pathelement path="lib/prevayler-core-2.6.jar" />
+		<pathelement path="lib/prevayler-factory-2.6.jar" />
+		<pathelement path="lib/javassist-3.18.jar" />
+	</path>
+	
+	<macrodef name="postc">
+		<attribute name="rootclass" />
+
+		<sequential>
+			<echo message="compiling for root class @{rootclass}" />
+
+			<java classname="raft.postvayler.compiler.Compiler" 
+				fork="true" failonerror="true" >
+
+				<classpath location="${classes}"/>
+				<classpath refid="classpath"/>
+				
+				<arg value="@{rootclass}" />
+
+				<assertions>
+				  <enable/>
+				</assertions>
+			</java>
+		</sequential>
+	</macrodef>
+	
+	<target name="clean" depends="init">
+		<delete>
+			<fileset dir="${classes}" includes="**/*.class"  />
+			<fileset dir="${build}" includes="*.jar"/>
+		</delete>
+	</target>
+
+	<target name="compile" depends="init" >
+		<javac srcdir="${src}" destdir="${classes}" source="1.5" target="1.5" encoding="UTF-8"
+			debug="on" listfiles="false" deprecation="true" classpathref="classpath" includeantruntime="false" >
+
+			<include name="raft/postvayler/**/*.java" />
+
+			<compilerarg value="-Xlint:unchecked"/>
+		</javac>
+	</target>
+
+	<target name="postvayler-compile" depends="init" >
+	</target>
+	
+	
+	<target name="make-jar" depends="init, compile" >
+		<jar destfile="${build}/postvayler.jar" basedir="${classes}" >
+
+			<include name="raft/postvayler/**/*" />
+		</jar>
+	</target>
+				
+	<target name="build" depends="init, compile, make-jar" >
+	</target>
+
+    <target name="javadoc" depends="compile">
+        <delete failonerror="false">
+            <fileset dir="${api.dir}" includes="**/*" />
+        </delete>
+
+        <javadoc sourcepath="${src}" destdir="${api.dir}" source="1.5" 
+            classpathref="classpath" packagenames="raft.postvayler.*">
+
+            <link offline="true" packagelistLoc="${javadoc.packages}/j2se-1.6" 
+                href="http://docs.oracle.com/javase/6/docs/api/" />
+            <link offline="true" packagelistLoc="${javadoc.packages}/prevayler-2.6" 
+                href="http://prevayler.org/apidocs/2.6/" />
+        </javadoc>
+    </target>
+
+	<target name="run-sample" depends="init, clean, compile" >
+		
+		<javac srcdir="${samples-src}" destdir="${classes}" source="1.5" target="1.5" encoding="UTF-8"
+			debug="on" listfiles="false" deprecation="true" classpathref="classpath" includeantruntime="false" >
+
+			<include name="raft/postvayler/samples/**/*.java" />
+		</javac>
+
+		<postc rootclass="raft.postvayler.samples.bank.Bank" />
+		<echo message="instrumented sample, now running" />
+		
+		<java classname="raft.postvayler.samples.bank.Main" 
+			fork="true" failonerror="true" >
+
+			<classpath location="${classes}"/>
+			<classpath refid="classpath"/>
+			
+			<jvmarg value="-Xmx256M" />
+			
+			<assertions>
+			  <enable/>
+			</assertions>
+		</java>
+		
+	</target>
+	
+</project>
+

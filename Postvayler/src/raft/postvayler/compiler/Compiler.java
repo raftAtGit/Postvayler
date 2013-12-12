@@ -11,8 +11,6 @@ import java.net.URLDecoder;
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -52,27 +50,9 @@ import raft.postvayler.inject.Key;
  */
 public class Compiler {
 
-	private static final CtClass CLASS_COLLECTION, CLASS_MAP; 
-	
-	private static final List<CtClass> KNOWN_CONTAINER_TYPES;
-	
-	static {
-		ClassPool pool = ClassPool.getDefault();
-		List<CtClass> list = new ArrayList<CtClass>();
-		try {
-			CLASS_COLLECTION = pool.get(Collection.class.getName()); 
-			CLASS_MAP = pool.get(Map.class.getName());
-			
-			list.add(CLASS_COLLECTION);
-			list.add(CLASS_MAP);
-			
-		} catch (NotFoundException e) {
-			throw new ExceptionInInitializerError(e);
-		}
-		KNOWN_CONTAINER_TYPES = Collections.unmodifiableList(list);
-	}
-	
 	// TODO somehow must check if a class is already enhanced
+	
+	private static final boolean DEBUG = false;
 	
 	public static void main(String[] args) throws Exception {
 		String rootClass = args[0];
@@ -329,7 +309,7 @@ public class Compiler {
 		System.out.println("added void __postvayler_onRecoveryCompleted() method to " + clazz.getName());
 		
 		String source = createSource("IsRoot.takeSnapshot.java.txt", contextClass.getName());
-		System.out.println(source);
+		if (DEBUG) System.out.println(source);
 		clazz.addMethod(CtNewMethod.make(source, clazz));
 		System.out.println("added public File takeSnapshot() method to " + clazz.getName());
 
@@ -403,57 +383,6 @@ public class Compiler {
 		for (Node subNode : node.subClasses.values()) {
 			instrumentNode(subNode);
 		}
-
-		
-	}
-
-	private void instrumentClass(CtClass clazz) throws Exception {
-		
-		cleanClass(clazz);
-		
-		injectInterfaces(clazz);
-		
-		addToPool(clazz);
-		
-
-		
-		for (CtField field : clazz.getDeclaredFields()) {
-			System.out.println("field: " + field);
-
-			if (Modifier.isTransient(field.getModifiers())) {
-				checkTransientFieldAnnotations(field);
-				continue;
-			}
-			
-			Key key = (Key) field.getAnnotation(Key.class);
-			if (key != null) {
-				Class<?>[] parents = key.value();
-				System.out.println("key field: " + field.getName() + ", parents: " + Arrays.toString(parents));
-			}
-			
-		}
-		
-		for (CtMethod method : clazz.getDeclaredMethods()) {
-			System.out.println("method: " + method);
-
-			if (method.hasAnnotation(Persist.class)) {
-				createTransaction(method);
-			}
-
-			if (method.hasAnnotation(Synch.class)) {
-				createSynch(method);
-			}
-		}
-		
-		// add a static final field for Root class to mark this class as enhanced
-		String classSuffix = getClassNameForJavaIdentifier(clazz.getName());
-		clazz.addField(CtField.make("public static final String __postvayler_root_" + classSuffix + " = \"" + rootClassName + "\";", clazz));
-		
-		
-		String dir = getClassWriteDir(clazz);
-		System.out.println("writing class " + clazz.getName() + " to " + dir);
-		clazz.writeFile(dir);
-
 	}
 
 	/** cleans tree recursively */
@@ -501,67 +430,6 @@ public class Compiler {
 		// see https://issues.jboss.org/browse/JASSIST-140
 	}
 
-	private void injectInterfaces(CtClass clazz) throws Exception {
-		if (rootClassName.equals(clazz.getName())) {
-			if (!implementedInterface(clazz, IsRoot.class)) {
-				clazz.addInterface(pool.get(IsRoot.class.getName()));
-				System.out.println("added IsRoot interface to " + clazz.getName());
-			}
-			if (!implementedInterface(clazz, Storage.class)) {
-				clazz.addInterface(pool.get(Storage.class.getName()));
-				System.out.println("added Storage interface to " + clazz.getName());
-			}
-			
-			clazz.addField(CtField.make("private final Pool __postvayler_pool = new Pool();", clazz));
-			System.out.println("added Pool __postvayler_pool field to " + clazz.getName());
-
-			// implement the IsRoot interface
-			clazz.addMethod(CtNewMethod.make("public final IsPersistent __postvayler_get(Long id) { return __postvayler_pool.get(id);}", clazz));
-			System.out.println("added IsPersistent __postvayler_get(Long id) method to " + clazz.getName());
-			
-			clazz.addMethod(CtNewMethod.make("public final Long __postvayler_put(IsPersistent persistent) { return __postvayler_pool.put(persistent);}", clazz));
-			System.out.println("added void __postvayler_put(IsPersistent persistent) method to " + clazz.getName());
-			
-			clazz.addMethod(CtNewMethod.make("public final void __postvayler_onRecoveryCompleted() { __postvayler_pool.switchToWeakValues();}", clazz));
-			System.out.println("added void __postvayler_onRecoveryCompleted() method to " + clazz.getName());
-			
-			String source = createSource("IsRoot.takeSnapshot.java.txt", contextClass.getName());
-			System.out.println(source);
-			clazz.addMethod(CtNewMethod.make(source, clazz));
-			System.out.println("added public File takeSnapshot() method to " + clazz.getName());
-			
-		} // if root class
-
-		if (!implementedInterface(clazz, IsPersistent.class)) {
-			
-			if (rootClassName.equals(clazz.getName())) {
-				clazz.addField(CtField.make("private final Long __postvayler_Id = __postvayler_pool.put(this);", clazz));
-				System.out.println("added Long __postvaylerId field to " + clazz.getName());
-				
-			} else {
-				clazz.addInterface(pool.get(IsPersistent.class.getName()));
-				System.out.println("added IsPersistent interface to " + clazz.getName());
-				
-				clazz.addField(CtField.make("protected Long __postvayler_Id;", clazz));
-				System.out.println("added Long __postvaylerId field to " + clazz.getName());
-				
-				// TODO we need to validate at all levels
-				String validateSource = createSource("IsPersistent.init.validateClass.java.txt", contextClass.getName());
-						
-				// add code to validate runtime type
-				for (CtConstructor constructor : clazz.getDeclaredConstructors()) {
-					// TODO optimization: omit validate call if there is a call to this(constructor) 
-					constructor.insertAfter(validateSource);
-					System.out.println("added validateClass call to " + constructor.getLongName());
-				}
-			}
-			
-			// implement the IsPersistent interface
-			clazz.addMethod(CtNewMethod.make("public final Long __postvayler_getId() { return __postvayler_Id;}", clazz));
-			System.out.println("added Long __postvayler_getId() method to " + clazz.getName());
-		}
-	}
-
 	/** checks if given class or its Persistent superclasses implements the given interface.
 	 * that is, even if super class implements interface but not Persistent, this method will return false;  
 	 * */
@@ -581,55 +449,10 @@ public class Compiler {
 		return false;
 	}
 
-	/** injects code to constructors to put this object into pool */
-	private void addToPool(CtClass clazz) throws Exception {
-		if (Modifier.isAbstract(clazz.getModifiers()))
-			return;
-		
-		String source = createSource("IsPersistent.init.putToPool.java.txt", contextClass.getName(), clazz.getName());
-		
-		for (CtConstructor constructor : clazz.getDeclaredConstructors()) {
-			// TODO optimization: omit validate call if there is a call to this(constructor) 
-			constructor.insertAfter(source);
-			System.out.println("added add to pool call to " + constructor.getLongName());
-		}
-	}
-	
 	private void checkTransientFieldAnnotations(CtField field) throws Exception{
 		if (field.getAnnotation(Key.class) != null) 
 			throw new CompileException("transient field canoot be @Key field: " + field);
 		// TODO others
-	}
-
-	private boolean isContainer(CtClass clazz) throws Exception {
-		if (clazz.isArray()) 
-			return true;
-		
-		for (CtClass containerClass : KNOWN_CONTAINER_TYPES) {
-			if (clazz.subtypeOf(containerClass))
-				return true;
-			
-		}
-		return false;
-	}
-
-	private CtClass determineChildType(CtField field) throws Exception {
-		CtClass fieldClass = field.getType();
-		
-		if (fieldClass.isArray()) 
-			return fieldClass.getComponentType();
-		
-		System.out.println("--Generic: " + field.getGenericSignature());
-		SignatureAttribute.ClassType genericType = (SignatureAttribute.ClassType) 
-				SignatureAttribute.toFieldSignature(field.getGenericSignature()); 
-		System.out.println("--" + Arrays.toString(genericType.getTypeArguments()));
-		
-		for (SignatureAttribute.TypeArgument type : genericType.getTypeArguments()) {
-			System.out.println("---" + type.getType() + ": " + type.getType().getClass());
-		}
-		
-		
-		return null;
 	}
 
 	private void createTransaction(CtMethod method) throws Exception {
@@ -660,7 +483,7 @@ public class Compiler {
 			}
 		}
 				
-		System.out.println(source);
+		if (DEBUG) System.out.println(source);
 		method.setBody(source);
 		method.getMethodInfo().rebuildStackMap(pool);
 		
@@ -732,7 +555,7 @@ public class Compiler {
 				? createSource("IsPersistent.synch.java.txt", contextClass.getName(), method.getName()) 
 				: createSource("IsPersistent.synchVoid.java.txt", contextClass.getName(), method.getName());
 		
-		System.out.println(source);
+		if (DEBUG) System.out.println(source);
 		method.setBody(source);
 		method.getMethodInfo().rebuildStackMap(pool);
 		
@@ -811,7 +634,7 @@ public class Compiler {
 			String packagePath = packageName.replace('.', '/');
 			
 			String jarPath = URLDecoder.decode(path, "UTF-8");
-			jarPath = jarPath.substring(10, jarPath.lastIndexOf('!'));
+			jarPath = jarPath.substring(9, jarPath.lastIndexOf('!'));
 			
 			JarFile jarFile = new JarFile(jarPath);
 			try {
