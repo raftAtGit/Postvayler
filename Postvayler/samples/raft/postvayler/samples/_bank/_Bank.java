@@ -32,9 +32,6 @@ public class _Bank implements Serializable, IsRoot, IsPersistent, Storage {
 	private final Map<Integer, _Customer> customers = new TreeMap<Integer, _Customer>();
 	private final Map<Integer, _Account> accounts = new TreeMap<Integer, _Account>();
 
-	// TODO tmp
-	private _Customer aCustomer;
-
 	@_Injected private final Pool __postvayler_pool = new Pool();
 	@_Injected private final Long __postvayler_Id = __postvayler_pool.put(this);
 	

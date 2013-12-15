@@ -6,14 +6,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
+import raft.postvayler.Include;
 import raft.postvayler.Persist;
 import raft.postvayler.Persistent;
 import raft.postvayler.Synch;
+import raft.postvayler.samples.bank.secret.SecretCustomer;
 
 /**
  * 
  * @author  hakan eryargi (r a f t)
  */
+@Include(SecretCustomer.class)
 @Persistent 
 public class Bank implements Serializable {
 
@@ -22,10 +25,6 @@ public class Bank implements Serializable {
 	private final Map<Integer, Customer> customers = new TreeMap<Integer, Customer>();
 	private final Map<Integer, Account> accounts = new TreeMap<Integer, Account>();
 
-	// TODO remove later: since parsing generic type arguments and package scan is not implemented yet, we tell Postvayler compiler,
-	// to instrument Customer class by holding a direct reference to it.
-	private Customer aCustomer;
-	
 	private int lastCustomerId = 1;
 	private int lastAccountId = 1;
 	

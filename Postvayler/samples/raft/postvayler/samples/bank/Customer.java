@@ -21,10 +21,6 @@ public class Customer extends Person {
 
 	private final Map<Integer, Account> accounts = new TreeMap<Integer, Account>();
 	
-	// TODO remove later: since parsing generic type arguments and package scan is not implemented yet, we tell Postvayler compiler,
-	// to instrument Account class by holding a direct reference to it.
-	private Account account; // 
-	
 	public Customer(String name) {
 		super(name);
 	}
@@ -40,7 +36,7 @@ public class Customer extends Person {
 	@Persist
 	public void addAccount(Account account) {
 		if (account.getOwner() != null)
-			throw new IllegalArgumentException("Account already has an owner");
+			throw new IllegalStateException("Account already has an owner");
 		
 		accounts.put(account.getId(), account);
 	}
