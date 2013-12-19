@@ -33,9 +33,12 @@ public class Postvayler<T> {
 	public T create() throws Exception {
 		synchronized (Postvayler.class) {
 			if (instance != null) {
-				if (instance.root.getClass().equals(empty.getClass()))
-					return (T) instance.root;
-				throw new IllegalStateException("a persisted object already created for a different class: " + instance.root.getClass());
+				// TODO checking class is not enough after allowing multiple instances of root (siblings). 
+				// any flexibility here?
+//				if (instance.root.getClass().equals(empty.getClass()))
+//					return (T) instance.root;
+//				throw new IllegalStateException("a persisted object already created for a different class: " + instance.root.getClass());
+				throw new IllegalStateException("an instance is already created");
 			}
 
 			// TODO check root class is actually instrumented

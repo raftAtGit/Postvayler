@@ -11,6 +11,7 @@ import raft.postvayler.Synch;
 import raft.postvayler.impl.ConstructorCall;
 import raft.postvayler.impl.ConstructorTransaction;
 import raft.postvayler.impl.Context;
+import raft.postvayler.impl.IsPersistent;
 import raft.postvayler.impl.MethodCall;
 import raft.postvayler.impl.MethodTransaction;
 
@@ -38,19 +39,19 @@ public class _Customer extends _Person {
 			Context context = __Postvayler.getInstance();
 			
 			if (context.inTransaction()) {
-				__postvayler_Id = context.root.__postvayler_put(this);
+				this.__postvayler_Id = context.root.__postvayler_put(this);
 			} else {
 			
 				context.setInTransaction(true);
 				try {
-					__postvayler_Id = context.prevayler.execute(new ConstructorTransaction(
-							this, new ConstructorCall(_Customer.class, new Class[] {String.class}), new Object[] { name } ));
+					this.__postvayler_Id = context.prevayler.execute(new ConstructorTransaction(
+							this, new ConstructorCall<IsPersistent>(_Customer.class, new Class[] {String.class}), new Object[] { name } ));
 				} finally {
 					context.setInTransaction(false);
 				}
 			}
 		} else if (Context.isInRecovery()) {
-			__postvayler_Id = Context.getRecoveryRoot().__postvayler_put(this);
+			this.__postvayler_Id = Context.getRecoveryRoot().__postvayler_put(this);
 		} else {
 			// no Postvayler, object will not have an id
 		}
