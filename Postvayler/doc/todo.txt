@@ -1,6 +1,8 @@
-* scan all reachable @Persistent classes. at the moment generic parameters (like collection types) is not parsed. 
-I'm planning to scan all packages of all reached @Persistent classes. this still does not guarantee all required 
-classes is instrumented (some one can extend a @Persistent class in a totally different package), but there is a run time check to catch that condition
+* implement @Include at compiler
+* make root class subclassable. for both root is subclass of a @Persistent and root is subclassed. also allowing multiple IsRoot's also seems possible
+(not as a Postvayelr root, but as siblings of root and children of others)   
+* fix the runtime check that a subclass of a @Persistent is instrumented. it was broken last time i tried
+* it make make sense to make a scan of referenced classes. CtClass.getRefClasses
 * remove runtime dependency to Javassist. at the moment $sig in injected code requires javassist.runtime.Desc, god knows why. 
 * add a clock facility to be used instead of System.currentTimeMillis()
 * remove previously injected code when compiler is re-run. at the moment the injected methods and fields are removed 
@@ -14,7 +16,8 @@ but the code injected into constructors is not removed. also field initializers 
 * support for spring dependency injection (at least injecting root as a bean to other spring beans)
 * some documentation
 * adapt prevayler samples to postvayler
-* runtime bytecode injection via javaagent or custom class loader
+* runtime bytecode injection via javaagent or custom class loader (classloader seems impossible?) 
 * check language spec if it's ok to throw a checked exception from an undeclared method
+* check language spec if GC can break in current design. even if so, we can always trick GC not collect our objects ;) 
 * what else?
 
