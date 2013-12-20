@@ -34,19 +34,19 @@ public class _Person implements Serializable, IsPersistent {
 			Context context = __Postvayler.getInstance();
 			
 			if (context.inTransaction()) {
-				__postvayler_Id = context.root.__postvayler_put(this);
+				this.__postvayler_Id = context.root.__postvayler_put(this);
 			} else {
 			
 				context.setInTransaction(true);
 				try {
-					__postvayler_Id = context.prevayler.execute(new ConstructorTransaction(
-							this, new ConstructorCall(_Person.class, new Class[] {String.class}), new Object[] { name } ));
+					this.__postvayler_Id = context.prevayler.execute(new ConstructorTransaction(
+							this, new ConstructorCall<IsPersistent>(_Person.class, new Class[] {String.class}), new Object[] { name } ));
 				} finally {
 					context.setInTransaction(false);
 				}
 			}
 		} else if (Context.isInRecovery()) {
-			__postvayler_Id = Context.getRecoveryRoot().__postvayler_put(this);
+			this.__postvayler_Id = Context.getRecoveryRoot().__postvayler_put(this);
 		} else {
 			// no Postvayler, object will not have an id
 		}

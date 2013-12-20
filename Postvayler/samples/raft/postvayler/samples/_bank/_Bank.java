@@ -12,6 +12,8 @@ import raft.postvayler.Persist;
 import raft.postvayler.Persistent;
 import raft.postvayler.Storage;
 import raft.postvayler.Synch;
+import raft.postvayler.impl.ConstructorCall;
+import raft.postvayler.impl.ConstructorTransaction;
 import raft.postvayler.impl.Context;
 import raft.postvayler.impl.IsPersistent;
 import raft.postvayler.impl.IsRoot;
@@ -22,23 +24,67 @@ import raft.postvayler.impl.Pool;
 
 /**
  * 
- * @author  hakan eryargi (r a f t)
+ * @author  r a f t
  */
 @Persistent 
-public class _Bank implements Serializable, IsRoot, IsPersistent, Storage {
+public class _Bank extends _Organization implements Serializable, IsRoot, Storage {
 
 	private static final long serialVersionUID = 1L;
 
+//	@_Injected private static long lastPoolStartId = 1;
+//	@_Injected private static final long getNextPoolStartId() {
+//		synchronized (_Bank.class) {
+//			return lastPoolStartId++;
+//		}
+//	}
+	
+	// TODO this doesnt work since we dont start with a deterministic root.
+	// before an instance is persisted, each instance of root class takes its id from its own pool.   
+	// if we dont separate their initial pool object id,  
+	// after one of them is persisted the previous ones may be mistakenly handled by the system as root. 
+	// getNextPoolStartId() is just to prevent that
+	//@_Injected private final Pool __postvayler_pool = new Pool(getNextPoolStartId());
+	
+	@_Injected private final Pool __postvayler_pool = new Pool();
+	
 	private final Map<Integer, _Customer> customers = new TreeMap<Integer, _Customer>();
 	private final Map<Integer, _Account> accounts = new TreeMap<Integer, _Account>();
 
-	@_Injected private final Pool __postvayler_pool = new Pool();
-	@_Injected private final Long __postvayler_Id = __postvayler_pool.put(this);
-	
 	private int lastCustomerId = 1;
 	private int lastAccountId = 1;
 	
 	public _Bank() throws Exception {
+		//@_Injected
+		// a subclass constructor is running, let him do the job
+		if (getClass() != _Bank.class)
+			return;
+		
+		if (__Postvayler.isBound()) { 
+			// there is already a persisted _Bank instance as root.
+			// this is just an ordinary _Bank instance, so put this as other ordinary IsPersistent objects
+			Context context = __Postvayler.getInstance();
+			
+			if (context.inTransaction()) {
+				this.__postvayler_Id = context.root.__postvayler_put(this);
+			} else {
+			
+				context.setInTransaction(true);
+				try {
+					this.__postvayler_Id = context.prevayler.execute(new ConstructorTransaction(
+							this, new ConstructorCall<IsPersistent>(_Bank.class, new Class[0]), new Object[0]));
+				} finally {
+					context.setInTransaction(false);
+				}
+			}
+		} else if (Context.isInRecovery()) {
+			// we are in recovery, there is already a persisted _Bank instance as root. 
+			// this is just an ordinary _Bank instance, so put this as other ordinary IsPersistent objects
+			assert (Context.getRecoveryRoot() != this);
+			this.__postvayler_Id = Context.getRecoveryRoot().__postvayler_put(this);
+		} else {
+			// no Postvayler, put this to own pool as the first object.
+			this.__postvayler_Id = __postvayler_pool.put(this);
+		}
 	}
 
 	@Persist
@@ -163,7 +209,7 @@ public class _Bank implements Serializable, IsRoot, IsPersistent, Storage {
 		
 		context.setInTransaction(true);
 		try {
-			return context.prevayler.execute(new MethodTransactionWithQuery(
+			return context.prevayler.execute(new MethodTransactionWithQuery<_Account>(
 					this, new MethodCall("__postvayler__createAccount", _Bank.class, new Class[0]), new Object[0]));
 		} finally {
 			context.setInTransaction(false);
@@ -250,12 +296,6 @@ public class _Bank implements Serializable, IsRoot, IsPersistent, Storage {
 	
 	public _Account getAccount(int id) {
 		return accounts.get(id);
-	}
-
-	
-	@_Injected
-	public final Long __postvayler_getId() {
-		return __postvayler_Id;
 	}
 
 	@_Injected

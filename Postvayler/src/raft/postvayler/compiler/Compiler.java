@@ -327,6 +327,7 @@ public class Compiler {
 		clazz.addInterface(pool.get(IsPersistent.class.getName()));
 		System.out.println("added IsPersistent interface to " + clazz.getName());
 		
+		// TODO optimization: we can make __postvayler_Id private final if there are no subclasses of it 
 		clazz.addField(CtField.make("protected Long __postvayler_Id;", clazz));
 		System.out.println("added Long __postvaylerId field to " + clazz.getName());
 		
