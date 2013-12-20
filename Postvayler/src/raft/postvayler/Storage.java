@@ -2,13 +2,20 @@ package raft.postvayler;
 
 import java.io.File;
 
+import org.prevayler.Prevayler;
+
 
 /**
- * Handle to persistent storage. After compilation @Root class can be casted to this interface. 
+ * <p>Handle to persistent storage. After compilation root class can be casted to this interface.</p> 
  * 
- * @author hakan eryargi (r a f t)
+ * @author r a f t
  */
 public interface Storage {
 	
+	/** 
+	 * Takes Prevayler snapshot.
+	 * 
+	 * @see Prevayler#takeSnapshot()
+	 * */
 	public File takeSnapshot() throws Exception;
 }

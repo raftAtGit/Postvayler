@@ -21,6 +21,7 @@ import raft.postvayler.impl.MethodCall;
 import raft.postvayler.impl.MethodTransaction;
 import raft.postvayler.impl.MethodTransactionWithQuery;
 import raft.postvayler.impl.Pool;
+import raft.postvayler.impl.Utils;
 
 /**
  * 
@@ -31,20 +32,6 @@ public class _Bank extends _Organization implements Serializable, IsRoot, Storag
 
 	private static final long serialVersionUID = 1L;
 
-//	@_Injected private static long lastPoolStartId = 1;
-//	@_Injected private static final long getNextPoolStartId() {
-//		synchronized (_Bank.class) {
-//			return lastPoolStartId++;
-//		}
-//	}
-	
-	// TODO this doesnt work since we dont start with a deterministic root.
-	// before an instance is persisted, each instance of root class takes its id from its own pool.   
-	// if we dont separate their initial pool object id,  
-	// after one of them is persisted the previous ones may be mistakenly handled by the system as root. 
-	// getNextPoolStartId() is just to prevent that
-	//@_Injected private final Pool __postvayler_pool = new Pool(getNextPoolStartId());
-	
 	@_Injected private final Pool __postvayler_pool = new Pool();
 	
 	private final Map<Integer, _Customer> customers = new TreeMap<Integer, _Customer>();
@@ -52,6 +39,8 @@ public class _Bank extends _Organization implements Serializable, IsRoot, Storag
 
 	private int lastCustomerId = 1;
 	private int lastAccountId = 1;
+	
+	private _RichPerson owner;
 	
 	public _Bank() throws Exception {
 		//@_Injected
@@ -82,11 +71,48 @@ public class _Bank extends _Organization implements Serializable, IsRoot, Storag
 			assert (Context.getRecoveryRoot() != this);
 			this.__postvayler_Id = Context.getRecoveryRoot().__postvayler_put(this);
 		} else {
-			// no Postvayler, put this to own pool as the first object.
-			this.__postvayler_Id = __postvayler_pool.put(this);
+			// no Postvayler, object will not have an id
 		}
 	}
 
+	public _RichPerson getOwner() {
+		return owner;
+	}
+
+	@Persist
+	public void setOwner(_RichPerson newOwner) {
+		if (!__Postvayler.isBound()) { 
+			__postvayler__setOwner(newOwner);
+			return;
+		}
+		
+		Context context = __Postvayler.getInstance();
+		if (context.inTransaction()) { 
+			__postvayler__setOwner(newOwner);
+			return;
+		}
+		
+		context.setInTransaction(true);
+		try {
+			context.prevayler.execute(new MethodTransaction(
+					this, new MethodCall("__postvayler__setOwner", _Bank.class, new Class[] {_RichPerson.class}), new Object[] { newOwner } ));
+		} finally {
+			context.setInTransaction(false);
+		}
+	}
+
+	@_Injected("renamed from setOwner and made private")
+	private void __postvayler__setOwner(_RichPerson newOwner) {
+		if (this.owner != null) {
+			this.owner.removeBank(this);
+		}
+		this.owner = newOwner;
+		
+		if (newOwner != null) {
+			newOwner.addBank(this);
+		}
+	}
+	
 	@Persist
 	public _Customer createCustomer(String name) throws Exception {
 		if (!__Postvayler.isBound()) 
@@ -269,8 +295,19 @@ public class _Bank extends _Organization implements Serializable, IsRoot, Storag
 		if (!__Postvayler.isBound()) 
 			return __postvayler__getCustomers();
 		
-		synchronized (__Postvayler.getInstance().root) {
+		Context context = __Postvayler.getInstance();
+		
+		if (context.inQuery() || context.inTransaction()) {
 			return __postvayler__getCustomers();
+		}
+		
+		synchronized (context.root) {
+			context.setInQuery(true);
+		    try {
+				return __postvayler__getCustomers();
+			} finally {
+				context.setInQuery(false);
+			}
 		}
 	}
 
@@ -284,8 +321,19 @@ public class _Bank extends _Organization implements Serializable, IsRoot, Storag
 		if (!__Postvayler.isBound()) 
 			return __postvayler__getAccounts();
 		
-		synchronized (__Postvayler.getInstance().root) {
+		Context context = __Postvayler.getInstance();
+		
+		if (context.inQuery() || context.inTransaction()) {
 			return __postvayler__getAccounts();
+		}
+		
+		synchronized (context.root) {
+			context.setInQuery(true);
+		    try {
+				return __postvayler__getAccounts();
+			} finally {
+				context.setInQuery(false);
+			}
 		}
 	}
 
@@ -305,7 +353,16 @@ public class _Bank extends _Organization implements Serializable, IsRoot, Storag
 
 	@_Injected
 	public final Long __postvayler_put(IsPersistent persistent) {
-		return __postvayler_pool.put(persistent);
+		if (persistent.__postvayler_getId() != null) {
+			// we throw error to halt Prevayler
+			throw new Error("object already has an id\n" + Utils.identityCode(persistent));
+		}
+		
+		Long id = __postvayler_pool.put(persistent); 
+		if (persistent == this) {
+			 this.__postvayler_Id = id;
+		}
+		return id; 
 	}
 
 	@_Injected

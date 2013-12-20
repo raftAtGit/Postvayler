@@ -29,7 +29,7 @@ public class Main {
 		checkEqual(bank, pojoBank);
 		System.out.println("-- initial populate test completed --");
 		
-		for (int i = 0; i < 10; i++) {
+		for (int i = 0; i < 1000000; i++) {
 		
 			long seed = new Random().nextLong();
 			

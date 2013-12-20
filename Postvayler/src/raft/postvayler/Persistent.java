@@ -7,9 +7,12 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Marks a Persistent object.
+ * Marks a class as Persistent. Persistence is inherited so subclasses of a persistent class 
+ * is also persistent. But it's a good practice to annotate them too. 
  * 
- * @author hakan eryargi (r a f t)
+ * @see Persist
+ * 
+ * @author r a f t
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.TYPE)

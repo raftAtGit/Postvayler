@@ -10,8 +10,28 @@ import raft.postvayler.impl.GCPreventingPrevayler;
 import raft.postvayler.impl.IsRoot;
 
 /**
+ * <p>Entry point to create a @Persistent object. After @Persistent classes is instrumented 
+ * (i.e. they are compiled with Postvayler compiler), it's enough to call 
+ * <code>Postvayler.create(MyRoot.class)</code> to get persisted instance of <code>MyRoot</code> class.</p>
  * 
- * @author  hakan eryargi (r a f t)
+ * <p>Postvayler persists an <a href="http://en.wikipedia.org/wiki/Object_graph">object graph</a> 
+ * via <a href="http://prevayler.org/">prevalence</a>. MyRoot here denotes the entry point of 
+ * the object graph. It may be the root node of a tree, a container class around other data structures
+ * or something else.</p>
+ * 
+ * <p>Postvayler compiler instruments classes in regard to root class. In runtime, 
+ * {@link Postvayler#create(Class)} should be called with the same root class or with an instance of it.  
+ *  This suggests there can be only one root instance per JVM (indeed per {@link ClassLoader}).</p>
+ *  
+ *  <p>Postvayler creates {@link Prevayler} with default settings and 
+ *  <i>./persist/root.class.qualified.Name</i> directory as prevalance directory. These can be 
+ *  configured by passing a {@link PrevaylerFactory} instance to Postvayler before calling {@link #create()}.</p>
+ * 
+ * @see Persistent
+ * @see Persist
+ * @see PrevaylerFactory
+ * 
+ * @author r a f t
  */
 public class Postvayler<T> {
 

@@ -1,7 +1,8 @@
 package raft.postvayler;
 
 /**
- * A @Persist method is called inside a @Sync method. This is not allowed and will cause a deadlock.
+ * <p>Thrown if a @Persist method is called inside a @Sync method. The call maybe direct or indirect. 
+ * This is not allowed and will cause a deadlock.</p>
  * 
  * @author r a f t
  */

@@ -92,8 +92,19 @@ public class _Customer extends _Person {
 		if (!__Postvayler.isBound()) 
 			return __postvayler__getAccounts();
 		
-		synchronized (__Postvayler.getInstance().root) {
+		Context context = __Postvayler.getInstance();
+		
+		if (context.inQuery() || context.inTransaction()) {
 			return __postvayler__getAccounts();
+		}
+		
+		synchronized (context.root) {
+			context.setInQuery(true);
+		    try {
+				return __postvayler__getAccounts();
+			} finally {
+				context.setInQuery(false);
+			}
 		}
 	}
 	

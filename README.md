@@ -53,8 +53,8 @@ void addBook(Book book) {
      __postvayler_addBook(book);
      return;
   }
-  // we are already encapsulated in a transaction, just proceed to original method
   if (weAreInATransaction) {
+     // we are already encapsulated in a transaction, just proceed to original method
      __postvayler_addBook(book);
      return;
   }

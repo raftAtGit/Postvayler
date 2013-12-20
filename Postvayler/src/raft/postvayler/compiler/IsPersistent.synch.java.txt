@@ -16,7 +16,7 @@
 			return __postvayler__{1} ( $$ );
 		}
 		
-		synchronized ({0}.getInstance().root) '{'
+		synchronized (context.root) '{'
 			context.setInQuery(true);
 		    try '{'
 				return __postvayler__{1} ( $$ );

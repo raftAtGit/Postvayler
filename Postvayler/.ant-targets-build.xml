@@ -1,0 +1,8 @@
+build
+clean
+compile
+init
+javadoc
+make-jar
+postvayler-compile
+run-sample

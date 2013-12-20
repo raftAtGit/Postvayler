@@ -57,11 +57,6 @@ public class _Main {
 		}
 		
 		System.out.println("final customers: " + bank.getCustomers().size());
-		
-//		System.out.println("--");
-//		for (_Customer cust : pojoBank.getCustomers()) {
-//			System.out.println(cust.__postvayler_getId() + ":" + cust + ", phone: " + cust.getPhone());
-//		}
 	}
 	
 	public static void doStressTest() throws Exception {
@@ -80,9 +75,10 @@ public class _Main {
 				};
 			});
 		}
+		final boolean[] doGC = new boolean[] {true};
 		new Thread() {
 			public void run() {
-				while (true) {
+				while (doGC[0]) {
 					System.gc();
 					try {
 						Thread.sleep(1000);
@@ -97,11 +93,38 @@ public class _Main {
 		for (Thread t : threads) {
 			t.join();
 		}
+		doGC[0] = false;
 		System.out.println("all threads completed");
 		
 	}
-	
 	private static void checkEqual(_Bank bank, _Bank pojoBank) throws Exception {
+		_RichPerson owner = bank.getOwner();
+		_RichPerson pojoOwner = pojoBank.getOwner();
+		
+		if ((owner == null) ^ (pojoOwner == null))
+			throw new Exception("owners differ");
+		
+		if (owner != null) {
+			checkEqual(owner, pojoOwner);
+			
+			List<_Bank> banks = owner.getBanks();
+			List<_Bank> pojoBanks = pojoOwner.getBanks();
+			
+			if (banks.size() != pojoBanks.size())
+				throw new Exception("banks sizes differ");
+			
+			for (int i = 0; i < banks.size(); i++) {
+				checkEqualWithoutOwner(banks.get(i), pojoBanks.get(i));
+			}
+		} else {
+			checkEqualWithoutOwner(bank, pojoBank);
+		}
+			
+	}	
+	private static void checkEqualWithoutOwner(_Bank bank, _Bank pojoBank) throws Exception {
+		if (bank.getClass() != pojoBank.getClass())
+			throw new Exception("bank classes differ: " + bank.getClass() + ", " + pojoBank.getClass());
+		
 		List<_Customer> customers = bank.getCustomers();
 		List<_Customer> pojoCustomers = pojoBank.getCustomers();
 		
@@ -134,19 +157,23 @@ public class _Main {
 			checkEqual(account, pojoAccount);
 		}
 	}
-
 	private static void checkEqual(_Customer customer, _Customer pojoCustomer) throws Exception {
-		if (customer.getId() != pojoCustomer.getId())
-			throw new Exception("test failed");
+		checkEqual((_Person)customer, (_Person)pojoCustomer);
 		
-		if (!equals(customer.getName(), pojoCustomer.getName()))
-			throw new Exception("test failed");
-
-		if (!equals(customer.getPhone(), pojoCustomer.getPhone()))
+		if (customer.getId() != pojoCustomer.getId())
 			throw new Exception("test failed");
 		
 		if (customer.getAccounts().size() != pojoCustomer.getAccounts().size())
 			throw new Exception("test failed");
+	}
+	
+	private static void checkEqual(_Person person, _Person pojoPerson) throws Exception {
+		if (!equals(person.getName(), pojoPerson.getName()))
+			throw new Exception("test failed");
+
+		if (!equals(person.getPhone(), pojoPerson.getPhone()))
+			throw new Exception("test failed");
+		
 	}
 	
 	private static void checkEqual(_Account account, _Account pojoAccount) throws Exception {
@@ -179,7 +206,10 @@ public class _Main {
 	private static _Bank createPersistentBank() throws Exception {
 		PrevaylerFactory<IsRoot> factory = new PrevaylerFactory<IsRoot>();
 		factory.configurePrevalenceDirectory("persist/raft.postvayler.samples._bank._Bank");
-		factory.configurePrevalentSystem(new _Bank());
+		_Bank empty = new _Bank();
+		empty.__postvayler_put(empty);
+		
+		factory.configurePrevalentSystem(empty);
 	
 		Prevayler<IsRoot> prevayler = new GCPreventingPrevayler(factory.create());
 		IsRoot root = prevayler.prevalentSystem();
@@ -200,19 +230,28 @@ public class _Main {
 	
 	private static void populateBank(_Bank bank, Random random) throws Exception {
 		
-		// add some initial customers and accounts
+		// add some initial customers and accounts and also owner
+		bank.setOwner(new _RichPerson("kingpin"));
+		
 		for (int i = 0; i < 50 + random.nextInt(50); i++) {
 			_Customer customer = bank.createCustomer("initial:" + random.nextInt());
 			customer.addAccount(bank.createAccount());
 		}
 		
+		
 		int count = 1000 + random.nextInt(1000);
 		
 		for (int action = 0; action < count; action++) {
 			
-			int next = random.nextInt(12);
-			
-			switch (next) {
+			int next = random.nextInt(BANK_ACTIONS);
+			doSomethingRandomWithBank(bank, next, random);
+		}
+	}
+	
+	static final int BANK_ACTIONS = 19;
+
+	private static void doSomethingRandomWithBank(_Bank bank, int action, Random random) throws Exception {
+		switch (action) {
 			 case 0: {
 				 // create a customer via bank
 				 _Customer customer = bank.createCustomer("create:" + random.nextInt());
@@ -225,13 +264,19 @@ public class _Main {
 				 break;
 			 	}
 			 case 2: {
+				 // create a detached customer
+				 _Customer customer = new _Customer("add:" + random.nextInt());
+				 customer.setPhone("phone" + random.nextInt());
+				 break;
+			 	}
+			 case 3: {
 				 // create customer via bank and set phone
 				 _Customer customer = bank.createCustomer("create:" + random.nextInt());
 				 customer.setPhone("phone:" +  + random.nextInt());
 				 break;
 			 	}
 			 // set phones of some customers
-			 case 3: {
+			 case 4: {
 				 List<_Customer> customers = bank.getCustomers();
 				 if (customers.isEmpty())
 					 break;
@@ -242,7 +287,7 @@ public class _Main {
 				 break;
 			 	}
 			 // remove some customers
-			 case 4: {
+			 case 5: {
 				 List<_Customer> customers = bank.getCustomers();
 				 if (customers.isEmpty())
 					 break;
@@ -253,17 +298,17 @@ public class _Main {
 				 break;
 			 	}
 			 // create some accounts
-			 case 5: {
+			 case 6: {
 				 bank.createAccount();
 				 break;
 			 }
 			 // create some accounts and deposit money
-			 case 6: {
+			 case 7: {
 				 bank.createAccount().deposit(10 + random.nextInt(50));
 				 break;
 			 }
 			 // create some accounts and add to customers
-			 case 7: {
+			 case 8: {
 				 List<_Customer> customers = bank.getCustomers();
 				 if (customers.isEmpty())
 					 break;
@@ -277,10 +322,10 @@ public class _Main {
 				 break;
 			 	}
 			 // transfer some money
-			 case 8: 
 			 case 9: 
 			 case 10: 
-			 case 11: {
+			 case 11: 
+			 case 12: {
 				 List<_Account> accounts = bank.getAccounts();
 				 if (accounts.size() < 2)
 					 break;
@@ -299,8 +344,68 @@ public class _Main {
 				 
 				 break;
 			 }
-			}
-		}
+			 // assign bank an owner 
+			 case 13: {
+				 _RichPerson richPerson = new _RichPerson("richie rich:" + random.nextInt());
+				 bank.setOwner(richPerson);
+				 break;
+			 }
+			 // create another bank   
+			 case 14: {
+				 _Bank other = new _Bank();
+				 _RichPerson rich = bank.getOwner(); 
+				 if (rich != null) {
+					 other.setOwner(rich);
+				 }
+				 break;
+			 }
+			 // create another bank and create an owner if there is none   
+			 case 15: {
+				 _Bank other = new _Bank();
+				 _RichPerson rich = bank.getOwner(); 
+				 if (rich == null) {
+					 rich = new _RichPerson("richie rich:" + random.nextInt());
+					 bank.setOwner(rich);
+				 }
+				 other.setOwner(rich);
+				 break;
+			 }
+			 // create a central bank and create an owner if there is none   
+			 case 16: {
+				 _CentralBank central = new _CentralBank();
+				 _RichPerson rich = bank.getOwner(); 
+				 if (rich == null) {
+					 rich = new _RichPerson("richie rich:" + random.nextInt());
+					 bank.setOwner(rich);
+				 }
+				 central.setOwner(rich);
+				 break;
+			 }
+			 
+			 
+			 // create a detached bank and do something random on it   
+			 case 17: {
+				 _Bank other = new _Bank();
+				 for (int i = 0; i < 50 + random.nextInt(100); i++) {
+					 // -2 to avoid stack overflow
+					 doSomethingRandomWithBank(other, random.nextInt(BANK_ACTIONS-2), random);
+				 }
+				 break;
+			 }
+			 // do something random with other banks
+			 case 18: {
+				 _RichPerson owner = bank.getOwner();
+				 if (owner != null) {
+					 List<_Bank> banks = owner.getBanks();
+					 if (banks.size() > 1) {
+						 _Bank otherBank = banks.get(random.nextInt(banks.size()-1)+1);
+						 // -2 to avoid stack overflow
+						 doSomethingRandomWithBank(otherBank, random.nextInt(BANK_ACTIONS-2), random);
+					 }
+				 }
+				 break;
+			 }
+		}	
 	}
 	
 	
