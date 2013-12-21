@@ -17,17 +17,11 @@ public class Pool implements Serializable {
 	 *  @see #switchToWeakValues() */
 	private Map<Long, IsPersistent> objects = new HashMap<Long, IsPersistent>();
 
-	private long lastId;
+	private long lastId = 1;
 	
 	public Pool() {
-		this(1);
 	}
 	
-	// TODO temp
-	private Pool(long firstObjectId) {
-		this.lastId = firstObjectId;
-	}
-
 	public final synchronized Long put(IsPersistent persistent) {
 		Long id = lastId++;
 		objects.put(id, persistent);

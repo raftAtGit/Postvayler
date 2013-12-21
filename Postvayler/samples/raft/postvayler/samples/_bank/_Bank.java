@@ -24,11 +24,12 @@ import raft.postvayler.impl.Pool;
 import raft.postvayler.impl.Utils;
 
 /**
+ * A bank.
  * 
- * @author  r a f t
+ * @author r a f t
  */
 @Persistent 
-public class _Bank extends _Organization implements Serializable, IsRoot, Storage {
+public class _Bank extends _Company implements Serializable, IsRoot, Storage {
 
 	private static final long serialVersionUID = 1L;
 
@@ -39,8 +40,6 @@ public class _Bank extends _Organization implements Serializable, IsRoot, Storag
 
 	private int lastCustomerId = 1;
 	private int lastAccountId = 1;
-	
-	private _RichPerson owner;
 	
 	public _Bank() throws Exception {
 		//@_Injected
@@ -75,44 +74,6 @@ public class _Bank extends _Organization implements Serializable, IsRoot, Storag
 		}
 	}
 
-	public _RichPerson getOwner() {
-		return owner;
-	}
-
-	@Persist
-	public void setOwner(_RichPerson newOwner) {
-		if (!__Postvayler.isBound()) { 
-			__postvayler__setOwner(newOwner);
-			return;
-		}
-		
-		Context context = __Postvayler.getInstance();
-		if (context.inTransaction()) { 
-			__postvayler__setOwner(newOwner);
-			return;
-		}
-		
-		context.setInTransaction(true);
-		try {
-			context.prevayler.execute(new MethodTransaction(
-					this, new MethodCall("__postvayler__setOwner", _Bank.class, new Class[] {_RichPerson.class}), new Object[] { newOwner } ));
-		} finally {
-			context.setInTransaction(false);
-		}
-	}
-
-	@_Injected("renamed from setOwner and made private")
-	private void __postvayler__setOwner(_RichPerson newOwner) {
-		if (this.owner != null) {
-			this.owner.removeBank(this);
-		}
-		this.owner = newOwner;
-		
-		if (newOwner != null) {
-			newOwner.addBank(this);
-		}
-	}
-	
 	@Persist
 	public _Customer createCustomer(String name) throws Exception {
 		if (!__Postvayler.isBound()) 

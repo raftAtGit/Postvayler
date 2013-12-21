@@ -7,11 +7,17 @@ import java.util.Random;
 
 import raft.postvayler.Postvayler;
 import raft.postvayler.impl.Context;
+import raft.postvayler.samples.bank.secret.SecretCustomer;
 
+/**
+ * Entry point of sample.
+ * 
+ * @author r a f t
+ */
 public class Main {
 
 	public static void main(String[] args) throws Exception {
-//		doStressTest();
+//		runStressTest();
 		runEqualityTest();
 	}
 	
@@ -29,7 +35,7 @@ public class Main {
 		checkEqual(bank, pojoBank);
 		System.out.println("-- initial populate test completed --");
 		
-		for (int i = 0; i < 1000000; i++) {
+		for (int i = 0; i < 10; i++) {
 		
 			long seed = new Random().nextLong();
 			
@@ -48,14 +54,9 @@ public class Main {
 		}
 		
 		System.out.println("final customers: " + bank.getCustomers().size());
-		
-//		System.out.println("--");
-//		for (_Customer cust : pojoBank.getCustomers()) {
-//			System.out.println(cust.__postvayler_getId() + ":" + cust + ", phone: " + cust.getPhone());
-//		}
 	}
 	
-	public static void doStressTest() throws Exception {
+	public static void runStressTest() throws Exception {
 		final Bank bank = Postvayler.create(Bank.class);
 //		((Storage) bank).takeSnapshot();
 		
@@ -133,8 +134,12 @@ public class Main {
 		if (customer.getId() != pojoCustomer.getId())
 			throw new Exception("test failed");
 		
-		if (!equals(customer.getName(), pojoCustomer.getName()))
-			throw new Exception("test failed");
+		try {
+			if (!equals(customer.getName(), pojoCustomer.getName()))
+				throw new Exception("test failed");
+		} catch (UnsupportedOperationException e) {
+			assert (customer instanceof SecretCustomer); 
+		}
 
 		if (!equals(customer.getPhone(), pojoCustomer.getPhone()))
 			throw new Exception("test failed");
@@ -183,19 +188,32 @@ public class Main {
 	
 	private static void populateBank(Bank bank, Random random) throws Exception {
 		
-		// add some initial customers and accounts
+		// TODO implement @Include in compiler
+		// this call will fail until @Include is implemented 
+		//bank.addCustomer(new SecretCustomer());
+		
+		// add some initial customers and accounts and also owner
+		bank.setOwner(new RichPerson("kingpin"));
+		
 		for (int i = 0; i < 50 + random.nextInt(50); i++) {
 			Customer customer = bank.createCustomer("initial:" + random.nextInt());
 			customer.addAccount(bank.createAccount());
 		}
 		
+		
 		int count = 1000 + random.nextInt(1000);
 		
 		for (int action = 0; action < count; action++) {
 			
-			int next = random.nextInt(13);
-			
-			switch (next) {
+			int next = random.nextInt(BANK_ACTIONS);
+			doSomethingRandomWithBank(bank, next, random);
+		}
+	}
+	
+	static final int BANK_ACTIONS = 19;
+
+	private static void doSomethingRandomWithBank(Bank bank, int action, Random random) throws Exception {
+		switch (action) {
 			 case 0: {
 				 // create a customer via bank
 				 Customer customer = bank.createCustomer("create:" + random.nextInt());
@@ -288,8 +306,69 @@ public class Main {
 				 
 				 break;
 			 }
-			}
-		}
+			 // assign bank an owner 
+			 case 13: {
+				 RichPerson richPerson = new RichPerson("richie rich:" + random.nextInt());
+				 bank.setOwner(richPerson);
+				 break;
+			 }
+			 // create another bank   
+			 case 14: {
+				 Bank other = new Bank();
+				 RichPerson rich = bank.getOwner(); 
+				 if (rich != null) {
+					 other.setOwner(rich);
+				 }
+				 break;
+			 }
+			 // create another bank and create an owner if there is none   
+			 case 15: {
+				 Bank other = new Bank();
+				 RichPerson rich = bank.getOwner(); 
+				 if (rich == null) {
+					 rich = new RichPerson("richie rich:" + random.nextInt());
+					 bank.setOwner(rich);
+				 }
+				 other.setOwner(rich);
+				 break;
+			 }
+			 // create a central bank and create an owner if there is none   
+			 case 16: {
+				 CentralBank central = new CentralBank();
+				 RichPerson rich = bank.getOwner(); 
+				 if (rich == null) {
+					 rich = new RichPerson("richie rich:" + random.nextInt());
+					 bank.setOwner(rich);
+				 }
+				 central.setOwner(rich);
+				 break;
+			 }
+			 
+			 
+			 // create a detached bank and do something random on it   
+			 case 17: {
+				 Bank other = new Bank();
+				 for (int i = 0; i < 50 + random.nextInt(100); i++) {
+					 // -2 to avoid stack overflow
+					 doSomethingRandomWithBank(other, random.nextInt(BANK_ACTIONS-2), random);
+				 }
+				 break;
+			 }
+			 // do something random with other banks
+			 case 18: {
+				 RichPerson owner = bank.getOwner();
+				 if (owner != null) {
+					 List<Bank> banks = owner.getBanks();
+					 if (banks.size() > 1) {
+						 Bank otherBank = banks.get(random.nextInt(banks.size()-1)+1);
+						 // -2 to avoid stack overflow
+						 doSomethingRandomWithBank(otherBank, random.nextInt(BANK_ACTIONS-2), random);
+					 }
+				 }
+				 break;
+			 }
+		}	
 	}
+	
 	
 }

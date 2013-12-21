@@ -1,6 +1,5 @@
 package raft.postvayler.samples.bank;
 
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -13,12 +12,13 @@ import raft.postvayler.Synch;
 import raft.postvayler.samples.bank.secret.SecretCustomer;
 
 /**
+ * A bank.
  * 
- * @author  hakan eryargi (r a f t)
+ * @author r a f t
  */
 @Include(SecretCustomer.class)
 @Persistent 
-public class Bank implements Serializable {
+public class Bank extends Company {
 
 	private static final long serialVersionUID = 1L;
 

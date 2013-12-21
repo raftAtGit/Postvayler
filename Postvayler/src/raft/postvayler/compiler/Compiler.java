@@ -265,8 +265,6 @@ public class Compiler {
 	}	
 
 	private void instrumentTree(Tree tree) throws Exception {
-		// TODO shall we allow subclasses of Root? 
-		
 		// cleans previously injected code
 		for (Node rootNode : tree.roots.values()) {
 			clean(rootNode);
@@ -274,14 +272,8 @@ public class Compiler {
 		
 		for (Node rootNode : tree.roots.values()) {
 			
-			// TODO this wont work if root is not a top level class in Persistence hierarchy
 			// inject interfaces to top level classes
-			if (rootNode.isRoot) {
-				injectIsRoot(rootNode);
-			} else {
-				injectIsPersistent(rootNode);
-			}
-			
+			injectIsPersistent(rootNode);
 			instrumentNode(rootNode);
 		}
 	}
@@ -302,23 +294,18 @@ public class Compiler {
 		clazz.addMethod(CtNewMethod.make("public final IsPersistent __postvayler_get(Long id) { return __postvayler_pool.get(id);}", clazz));
 		System.out.println("added IsPersistent __postvayler_get(Long id) method to " + clazz.getName());
 		
-		clazz.addMethod(CtNewMethod.make("public final Long __postvayler_put(IsPersistent persistent) { return __postvayler_pool.put(persistent);}", clazz));
+		String source = createSource("IsRoot.put.java.txt");
+		if (DEBUG) System.out.println(source);
+		clazz.addMethod(CtNewMethod.make(source, clazz));
 		System.out.println("added void __postvayler_put(IsPersistent persistent) method to " + clazz.getName());
 		
 		clazz.addMethod(CtNewMethod.make("public final void __postvayler_onRecoveryCompleted() { __postvayler_pool.switchToWeakValues();}", clazz));
 		System.out.println("added void __postvayler_onRecoveryCompleted() method to " + clazz.getName());
 		
-		String source = createSource("IsRoot.takeSnapshot.java.txt", contextClass.getName());
+		source = createSource("IsRoot.takeSnapshot.java.txt", contextClass.getName());
 		if (DEBUG) System.out.println(source);
 		clazz.addMethod(CtNewMethod.make(source, clazz));
 		System.out.println("added public File takeSnapshot() method to " + clazz.getName());
-
-		clazz.addField(CtField.make("protected Long __postvayler_Id;", clazz));
-		System.out.println("added Long __postvaylerId field to " + clazz.getName());
-		
-		// implement the IsPersistent interface (super interface of IsRoot)
-		clazz.addMethod(CtNewMethod.make("public final Long __postvayler_getId() { return __postvayler_Id;}", clazz));
-		System.out.println("added Long __postvayler_getId() method to " + clazz.getName());
 	}
 
 	private void injectIsPersistent(Node node) throws Exception {
@@ -334,6 +321,15 @@ public class Compiler {
 		// implement the IsPersistent interface
 		clazz.addMethod(CtNewMethod.make("public final Long __postvayler_getId() { return __postvayler_Id;}", clazz));
 		System.out.println("added Long __postvayler_getId() method to " + clazz.getName());
+		
+		String validateSource = createSource("IsPersistent.init.validateClass.java.txt", contextClass.getName());
+		
+		// add code to validate runtime type
+		for (CtConstructor constructor : clazz.getDeclaredConstructors()) {
+			// TODO optimization: omit validate call if there is a call to this(constructor) 
+			constructor.insertAfter(validateSource);
+			System.out.println("added validateClass call to " + constructor.getLongName());
+		}
 	}
 
 	private void instrumentNode(Node node) throws Exception {
@@ -343,20 +339,13 @@ public class Compiler {
 		String classSuffix = getClassNameForJavaIdentifier(clazz.getName());
 		clazz.addField(CtField.make("public static final String __postvayler_root_" + classSuffix + " = \"" + rootClassName + "\";", clazz));
 		
-		// we need to validate at all levels
-		String validateSource = createSource("IsPersistent.init.validateClass.java.txt", contextClass.getName());
-				
-		// add code to validate runtime type
-		for (CtConstructor constructor : clazz.getDeclaredConstructors()) {
-			// TODO optimization: omit validate call if there is a call to this(constructor) 
-			constructor.insertAfter(validateSource);
-			System.out.println("added validateClass call to " + constructor.getLongName());
+		if (node.isRoot) {
+			injectIsRoot(node);
 		}
-	
+		
 		if (!Modifier.isAbstract(clazz.getModifiers())) {
-			String source = (node.isRoot) 
-					? "this.__postvayler_Id = __postvayler_pool.put(this);"
-					: createSource("IsPersistent.init.putToPool.java.txt", contextClass.getName(), clazz.getName());
+			String source = createSource("IsPersistent.init.putToPool.java.txt", contextClass.getName(), clazz.getName());
+			if (DEBUG) System.out.println(source);
 			
 			for (CtConstructor constructor : clazz.getDeclaredConstructors()) {
 				// TODO optimization: omit validate call if there is a call to this(constructor)
@@ -550,8 +539,6 @@ public class Compiler {
 		
 		boolean hasReturnType = (CtClass.voidType != method.getReturnType());
 		
-		// TODO Unboxing for primitive return types
-
 		String source = hasReturnType 
 				? createSource("IsPersistent.synch.java.txt", contextClass.getName(), method.getName()) 
 				: createSource("IsPersistent.synchVoid.java.txt", contextClass.getName(), method.getName());
@@ -802,12 +789,12 @@ public class Compiler {
 			if (clazz == clz)
 				return this;
 			
-			Node sub = subClasses.get(clazz.getName());
+			Node sub = subClasses.get(clz.getName());
 			if (sub != null)
 				return sub;
 			
 			for (Node node : subClasses.values()) {
-				Node n = node.findNode(clazz);
+				Node n = node.findNode(clz);
 				if (n != null)
 					return n;
 			}

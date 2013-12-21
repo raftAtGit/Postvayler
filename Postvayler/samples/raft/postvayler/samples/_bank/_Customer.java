@@ -16,8 +16,9 @@ import raft.postvayler.impl.MethodCall;
 import raft.postvayler.impl.MethodTransaction;
 
 /**
+ * A customer.
  * 
- * @author  hakan eryargi (r a f t)
+ * @author r a f t
  */
 @Persistent
 public class _Customer extends _Person {

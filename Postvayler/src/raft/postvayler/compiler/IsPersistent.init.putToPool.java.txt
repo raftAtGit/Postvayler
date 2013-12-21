@@ -11,8 +11,11 @@
 		if ({0}.isBound()) '{' 
 			Context context = {0}.getInstance();
 			
+		    if ({1}.class.desiredAssertionStatus() && (context.root == this))
+		       throw new AssertionError((Object)"this is root");
+		       
 			if (context.inTransaction()) '{'
-				__postvayler_Id = context.root.__postvayler_put(this);
+				this.__postvayler_Id = context.root.__postvayler_put(this);
 			} else '{'
 			
 				context.setInTransaction(true);
@@ -24,7 +27,11 @@
 				}
 			}
 		} else if ({0}.isInRecovery()) '{'
-			__postvayler_Id = {0}.getRecoveryRoot().__postvayler_put(this);
+		
+		    if ({1}.class.desiredAssertionStatus() && ({0}.getRecoveryRoot() == this))
+		       throw new AssertionError((Object)"this is root");
+		       
+			this.__postvayler_Id = {0}.getRecoveryRoot().__postvayler_put(this);
 		} else '{'
 			// no Postvayler, object will not have an id
 		}

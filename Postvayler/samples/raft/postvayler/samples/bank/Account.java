@@ -6,8 +6,9 @@ import raft.postvayler.Persist;
 import raft.postvayler.Persistent;
 
 /**
+ * An account in a bank
  * 
- * @author  hakan eryargi (r a f t)
+ * @author  r a f t
  */
 @Persistent
 public class Account implements Serializable {

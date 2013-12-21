@@ -7,6 +7,7 @@ import org.prevayler.Prevayler;
 import org.prevayler.PrevaylerFactory;
 
 import raft.postvayler.impl.GCPreventingPrevayler;
+import raft.postvayler.impl.IsPersistent;
 import raft.postvayler.impl.IsRoot;
 
 /**
@@ -92,6 +93,7 @@ public class Postvayler<T> {
 				throw new NotCompiledException(empty.getClass().getName(), e);
 			}
 			
+			((IsRoot)empty).__postvayler_put((IsPersistent)empty);
 			
 			if (factory == null) {
 				factory = new PrevaylerFactory<T>();

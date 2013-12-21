@@ -5,7 +5,7 @@ import java.lang.annotation.Target;
 
 /**
  * 
- * dummy annotation to mark injected methods 
+ * Dummy annotation to mark injected methods and fields
  * 
  * @author r a f t
  */

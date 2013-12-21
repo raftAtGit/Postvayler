@@ -4,6 +4,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 import raft.postvayler.NotCompiledException;
+import raft.postvayler.Persistent;
 
 /**
  * 
@@ -24,17 +25,25 @@ public class ClassCache {
 		if (knownInstrumentedClasses.contains(clazz))
 			return;
 		
-		try {
-			String classSuffix = getClassNameForJavaIdentifier(clazz);
-			String instrumentationRoot = (String) clazz.getField("__postvayler_root_" + classSuffix).get(null);
-			if (!rootClassName.equals(instrumentationRoot))
-				throw new NotCompiledException("class " + clazz.getName() + " is not instrumented for root class " + 
-						rootClassName + " but for class " + instrumentationRoot); 
+		while (true) {
+			try {
+				String classSuffix = getClassNameForJavaIdentifier(clazz);
+				String instrumentationRoot = (String) clazz.getField("__postvayler_root_" + classSuffix).get(null);
+				if (!rootClassName.equals(instrumentationRoot))
+					throw new NotCompiledException("class " + clazz.getName() + " is not instrumented for root class " + 
+							rootClassName + " but for class " + instrumentationRoot); 
 
-			knownInstrumentedClasses.add(clazz);
+				knownInstrumentedClasses.add(clazz);
 			
-		} catch (NoSuchFieldException e) {
-			throw new NotCompiledException(clazz.getName(), e);
+				clazz = clazz.getSuperclass();
+				if (clazz == null)
+					break;
+				if (clazz.getAnnotation(Persistent.class) == null) 
+					break;
+				
+			} catch (NoSuchFieldException e) {
+				throw new NotCompiledException(clazz.getName(), e);
+			}
 		}
 	}
 	

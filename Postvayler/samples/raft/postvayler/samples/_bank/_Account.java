@@ -11,8 +11,9 @@ import raft.postvayler.impl.MethodCall;
 import raft.postvayler.impl.MethodTransaction;
 
 /**
+ * An account in a bank
  * 
- * @author  hakan eryargi (r a f t)
+ * @author  r a f t
  */
 public class _Account implements Serializable, IsPersistent {
 

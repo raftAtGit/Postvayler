@@ -10,8 +10,9 @@ import raft.postvayler.Persistent;
 import raft.postvayler.Synch;
 
 /**
+ * A customer.
  * 
- * @author  hakan eryargi (r a f t)
+ * @author r a f t
  */
 @Persistent
 public class Customer extends Person {

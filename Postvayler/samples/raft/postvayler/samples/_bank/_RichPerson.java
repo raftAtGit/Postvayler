@@ -12,10 +12,18 @@ import raft.postvayler.impl.ConstructorTransaction;
 import raft.postvayler.impl.Context;
 import raft.postvayler.impl.IsPersistent;
 
+/**
+ * A rich person who owns companies and banks.
+ * 
+ * @author r a f t
+ */
 @Persistent
 public class _RichPerson extends _Person {
 
 	private static final long serialVersionUID = 1L;
+	
+	/** we cannot use a regular HashSet since the iteration order is not deterministic */
+	private final Set<_Company> companies = new LinkedHashSet<_Company>();
 	
 	/** we cannot use a regular HashSet since the iteration order is not deterministic */
 	private final Set<_Bank> banks = new LinkedHashSet<_Bank>();
@@ -77,13 +85,15 @@ public class _RichPerson extends _Person {
 		return new ArrayList<_Bank>(banks);
 	}
 
-
-
-	boolean addBank(_Bank bank) {
-		return banks.add(bank);
+	boolean addCompany(_Company company) {
+		boolean result = companies.add(company);
+		if (company instanceof _Bank) 
+			banks.add((_Bank)company);
+		return result;
 	}
 
-	boolean removeBank(_Bank bank) {
-		return banks.remove(bank);
+	boolean removeCompany(_Company company) {
+		banks.remove(company);
+		return companies.remove(company);
 	}
 }

@@ -6,6 +6,11 @@ import raft.postvayler.impl.ConstructorTransaction;
 import raft.postvayler.impl.Context;
 import raft.postvayler.impl.IsPersistent;
 
+/**
+ * Central bank.
+ * 
+ * @author r a f t
+ */
 @Persistent
 public class _CentralBank extends _Bank {
 

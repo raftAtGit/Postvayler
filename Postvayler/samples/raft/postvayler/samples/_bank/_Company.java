@@ -12,23 +12,23 @@ import raft.postvayler.impl.MethodCall;
 import raft.postvayler.impl.MethodTransaction;
 
 /**
- * A person.
+ * A company.
  * 
  * @author r a f t
  */
-@Persistent
-public class _Person implements Serializable, IsPersistent {
+@Persistent 
+public class _Company implements Serializable, IsPersistent {
+
 	private static final long serialVersionUID = 1L;
 
-	private String name;
-	private String phone;
-
 	@_Injected protected Long __postvayler_Id;
+
+	private _RichPerson owner;
 	
-	public _Person() throws Exception {
+	public _Company() throws Exception {
 		//@_Injected
 		// a subclass constructor is running, let him do the job
-		if (getClass() != _Person.class)
+		if (getClass() != _Company.class)
 			return;
 		
 		if (__Postvayler.isBound()) { 
@@ -41,7 +41,7 @@ public class _Person implements Serializable, IsPersistent {
 				context.setInTransaction(true);
 				try {
 					this.__postvayler_Id = context.prevayler.execute(new ConstructorTransaction(
-							this, new ConstructorCall<IsPersistent>(_Person.class, new Class[] {String.class}), new Object[] { name } ));
+							this, new ConstructorCall<IsPersistent>(_Company.class, new Class[0]), new Object[0]));
 				} finally {
 					context.setInTransaction(false);
 				}
@@ -52,52 +52,49 @@ public class _Person implements Serializable, IsPersistent {
 			// no Postvayler, object will not have an id
 		}
 	}
-	
-	public _Person(String name) throws Exception {
-		this(); // since there is a call to this(..) constructor, we omit bytecode injection
-		this.name = name;
+
+	@_Injected
+	public final Long __postvayler_getId() {
+		return __postvayler_Id;
 	}
 
-	public String getPhone() {
-		return phone;
+	public _RichPerson getOwner() {
+		return owner;
 	}
 
-	public String getName() {
-		return name;
-	}
-	
 	@Persist
-	public void setPhone(String phone) {
+	public void setOwner(_RichPerson newOwner) {
 		if (!__Postvayler.isBound()) { 
-			__postvayler__setPhone(phone);
+			__postvayler__setOwner(newOwner);
 			return;
 		}
 		
 		Context context = __Postvayler.getInstance();
 		if (context.inTransaction()) { 
-			__postvayler__setPhone(phone);
+			__postvayler__setOwner(newOwner);
 			return;
 		}
 		
 		context.setInTransaction(true);
 		try {
 			context.prevayler.execute(new MethodTransaction(
-					this, new MethodCall("__postvayler__setPhone", _Person.class, new Class[] {String.class}), new Object[] { phone } ));
+					this, new MethodCall("__postvayler__setOwner", _Company.class, new Class[] {_RichPerson.class}), new Object[] { newOwner } ));
 		} finally {
 			context.setInTransaction(false);
 		}
 	}
 
-	@_Injected
-	private void __postvayler__setPhone(String phone) {
-		this.phone = phone;
+	@_Injected("renamed from setOwner and made private")
+	private void __postvayler__setOwner(_RichPerson newOwner) {
+		if (this.owner != null) {
+			this.owner.removeCompany(this);
+		}
+		this.owner = newOwner;
+		
+		if (newOwner != null) {
+			newOwner.addCompany(this);
+		}
 	}
+	
 
-	@_Injected 
-	public final Long __postvayler_getId() {
-		return __postvayler_Id;
-	}
-	
-	
-	
 }

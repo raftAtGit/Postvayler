@@ -14,13 +14,14 @@ import raft.postvayler.impl.GCPreventingPrevayler;
 import raft.postvayler.impl.IsRoot;
 
 /**
+ * Entry point of sample.
  * 
- * @author hakan eryargi (r a f t)
+ * @author r a f t
  */
 public class _Main {
 
 	public static void main(String[] args) throws Exception {
-//		doStressTest();
+//		runStressTest();
 		runEqualityTest();
 	}
 	
@@ -59,7 +60,7 @@ public class _Main {
 		System.out.println("final customers: " + bank.getCustomers().size());
 	}
 	
-	public static void doStressTest() throws Exception {
+	public static void runStressTest() throws Exception {
 		final _Bank bank = createPersistentBank();
 		
 		List<Thread> threads = new ArrayList<Thread>();

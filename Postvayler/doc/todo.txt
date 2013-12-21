@@ -1,7 +1,4 @@
 * implement @Include at compiler
-* make root class subclassable. for both root is subclass of a @Persistent and root is subclassed. also allowing multiple IsRoot's also seems possible
-(not as a Postvayelr root, but as siblings of root and children of others)   
-* fix the runtime check that a subclass of a @Persistent is instrumented. it was broken last time i tried
 * it make make sense to make a scan of referenced classes. CtClass.getRefClasses
 * remove runtime dependency to Javassist. at the moment $sig in injected code requires javassist.runtime.Desc, god knows why. 
 * add a clock facility to be used instead of System.currentTimeMillis()
@@ -17,7 +14,7 @@ but the code injected into constructors is not removed. also field initializers 
 * some documentation
 * adapt prevayler samples to postvayler
 * runtime bytecode injection via javaagent or custom class loader (classloader seems impossible?) 
-* check language spec if it's ok to throw a checked exception from an undeclared method
-* check language spec if GC can break in current design. even if so, we can always trick GC not collect our objects ;) 
+* check language spec if it's ok to throw a checked exception from an undeclared method (found nothing relevant in spec)
+* check language spec if GC can break in current design. even if so, we can always trick GC not collect our objects ;)  (found nothing relevant in spec)
 * what else?
 

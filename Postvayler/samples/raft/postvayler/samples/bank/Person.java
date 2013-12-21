@@ -6,8 +6,9 @@ import raft.postvayler.Persistent;
 import raft.postvayler.Persist;
 
 /**
+ * A person.
  * 
- * @author  hakan eryargi (r a f t)
+ * @author r a f t
  */
 @Persistent
 public class Person implements Serializable {
