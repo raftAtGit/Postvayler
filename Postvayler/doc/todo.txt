@@ -1,13 +1,15 @@
 * implement @Include at compiler
-* it make make sense to make a scan of referenced classes. CtClass.getRefClasses
+* it makes sense to make a scan of referenced classes. ie: CtClass.getRefClasses
 * remove runtime dependency to Javassist. at the moment $sig in injected code requires javassist.runtime.Desc, god knows why. 
-* add a clock facility to be used instead of System.currentTimeMillis()
+* add a clock facility to be used instead of System.currentTimeMillis(). stopping the clock during tx seems as the best option.
 * remove previously injected code when compiler is re-run. at the moment the injected methods and fields are removed 
 but the code injected into constructors is not removed. also field initializers is not removed due to a Javaassist bug: https://issues.jboss.org/browse/JASSIST-140
-* proper encapsulation. at the moment lots of things is public and anyone can crash the system with a simple cast and java call
+* seems as PersistInSynchException can be relaxed with synching on root at @Persist methods. this will have a slight 
+overhead but will be much user friendly. making this behaviour default but optional in compiler makes sense.
+* proper encapsulation. at the moment many things are public and anyone can crash the system with a simple cast and java call
 * more tests
 * maybe a better trick to prevent GC
-* cleanup and optimize compiler code
+* cleanup and optimize compiler code. also add a command line parser, help and options. my old ComLineArgs came to rescue :)
 * ant build.xml (or maven?)
 * an ant task for compiler
 * support for spring dependency injection (at least injecting root as a bean to other spring beans)
@@ -16,5 +18,6 @@ but the code injected into constructors is not removed. also field initializers 
 * runtime bytecode injection via javaagent or custom class loader (classloader seems impossible?) 
 * check language spec if it's ok to throw a checked exception from an undeclared method (found nothing relevant in spec)
 * check language spec if GC can break in current design. even if so, we can always trick GC not collect our objects ;)  (found nothing relevant in spec)
+* follow the white TODO's in the code ;)
 * what else?
 
