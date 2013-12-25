@@ -35,6 +35,7 @@ import javassist.CtNewMethod;
 import javassist.Modifier;
 import javassist.NotFoundException;
 import javassist.bytecode.SignatureAttribute;
+import raft.postvayler.Include;
 import raft.postvayler.Persist;
 import raft.postvayler.Persistent;
 import raft.postvayler.Storage;
@@ -45,8 +46,9 @@ import raft.postvayler.impl.IsRoot;
 import raft.postvayler.inject.Key;
 
 /**
+ * Postvayler compiler. Works on <strong>javac</strong> compiled bytecode.
  * 
- * @author hakan eryargi (r a f t)
+ * @author r a f t
  */
 public class Compiler {
 
@@ -147,8 +149,12 @@ public class Compiler {
 		List<CtClass> packageClasses = getPackageClasses(clazz);
 		
 		for (CtClass cls : packageClasses) {
-			if (cls.isInterface() || !isPersistent(cls))
+			if (cls.isInterface())
 				continue;
+			if (!isPersistent(cls)) {
+				warnIfHasUnusedAnnotations(cls);
+				continue;
+			}
 
 			List<CtClass> hierarchy = tree.add(cls);
 			
@@ -165,6 +171,25 @@ public class Compiler {
 		String packageName = clazz.getPackageName();
 		if (!scannedPackages.contains(packageName))
 			packageQueue.put(packageName, clazz);
+		
+		for (Object ref : clazz.getRefClasses()) {
+			CtClass refClass = pool.get((String)ref);
+			String refPackage = refClass.getPackageName();
+			
+			if (!scannedPackages.contains(refPackage))
+				packageQueue.put(refPackage, refClass);
+		}
+		
+		if (clazz.hasAnnotation(Include.class)) {
+			Include include = (Include) clazz.getAnnotation(Include.class);
+			// TODO will this work with javaaagent? since class itself is already loaded in this scenario 
+			for (Class<?> cls : include.value()) {
+				String includedPackage = cls.getPackage().getName();
+				if (!scannedPackages.contains(includedPackage))
+					packageQueue.put(includedPackage, pool.get(cls.getName()));
+			}
+		}
+		
 		
 		scanFields(clazz);
 		
@@ -326,7 +351,9 @@ public class Compiler {
 		
 		// add code to validate runtime type
 		for (CtConstructor constructor : clazz.getDeclaredConstructors()) {
-			// TODO optimization: omit validate call if there is a call to this(constructor) 
+			// optimization: there is a call to this(constructor), omit validate call  
+			if (!constructor.callsSuper())
+				continue;
 			constructor.insertAfter(validateSource);
 			System.out.println("added validateClass call to " + constructor.getLongName());
 		}
@@ -348,7 +375,9 @@ public class Compiler {
 			if (DEBUG) System.out.println(source);
 			
 			for (CtConstructor constructor : clazz.getDeclaredConstructors()) {
-				// TODO optimization: omit validate call if there is a call to this(constructor)
+				// optimization: there is a call to this(constructor), omit put to pool code 
+				if (!constructor.callsSuper())
+					continue;
 				constructor.insertAfter(source);
 				System.out.println("added add to pool call to " + constructor.getLongName());
 			}
@@ -420,6 +449,25 @@ public class Compiler {
 		// see https://issues.jboss.org/browse/JASSIST-140
 	}
 
+	private void warnIfHasUnusedAnnotations(CtClass clazz) throws Exception {
+		assert (!isPersistent(clazz));
+		
+		if (clazz.hasAnnotation(Include.class)) {
+			warning("class {0} has @Include annotation but not @Persistent itself. @Include will not be processed!", clazz.getName());
+		}
+		
+		for (CtMethod method : clazz.getDeclaredMethods()) {
+			if (method.hasAnnotation(Persist.class)) {
+				warning("class {0} has @Persist method {1} but not @Persistent itself. It will not be instrumented!", clazz.getName(), method.getSignature());
+			}
+
+			if (method.hasAnnotation(Synch.class)) {
+				warning("class {0} has @Synch method {1} but not @Persistent itself. It will not be instrumented!", clazz.getName(), method.getSignature());
+			}
+		}
+	}
+
+	
 	/** checks if given class or its Persistent superclasses implements the given interface.
 	 * that is, even if super class implements interface but not Persistent, this method will return false;  
 	 * */
@@ -696,6 +744,11 @@ public class Compiler {
 		}
 	}
 
+	private static void warning(String pattern, Object... arguments) {
+		System.err.println("WARNING: " + MessageFormat.format(pattern, arguments));
+	}
+
+	
 	/** returns true if this class or any of it's super classes has @Persistent annotation */
 	private static boolean isPersistent(CtClass clazz) throws Exception {
 		CtClass supr = clazz;

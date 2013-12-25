@@ -1,5 +1,3 @@
-* implement @Include at compiler
-* it makes sense to make a scan of referenced classes. ie: CtClass.getRefClasses
 * remove runtime dependency to Javassist. at the moment $sig in injected code requires javassist.runtime.Desc, god knows why. 
 * add a clock facility to be used instead of System.currentTimeMillis(). stopping the clock during tx seems as the best option.
 * remove previously injected code when compiler is re-run. at the moment the injected methods and fields are removed 

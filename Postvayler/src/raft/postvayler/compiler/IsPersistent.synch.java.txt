@@ -12,7 +12,7 @@
 		
 		Context context = {0}.getInstance();
 		
-		if (context.inQuery() || context.inTransaction()) '{'
+		if (context.inQuery()) '{'
 			return __postvayler__{1} ( $$ );
 		}
 		

@@ -138,7 +138,7 @@ public class Main {
 			if (!equals(customer.getName(), pojoCustomer.getName()))
 				throw new Exception("test failed");
 		} catch (UnsupportedOperationException e) {
-			assert (customer instanceof SecretCustomer); 
+			assert ((customer instanceof SecretCustomer) && (pojoCustomer instanceof SecretCustomer)); 
 		}
 
 		if (!equals(customer.getPhone(), pojoCustomer.getPhone()))
@@ -188,9 +188,8 @@ public class Main {
 	
 	private static void populateBank(Bank bank, Random random) throws Exception {
 		
-		// TODO implement @Include in compiler
-		// this call will fail until @Include is implemented 
-		//bank.addCustomer(new SecretCustomer());
+		// this call demonstrates @Include is implemented at compiler 
+		bank.addCustomer(new SecretCustomer());
 		
 		// add some initial customers and accounts and also owner
 		bank.setOwner(new RichPerson("kingpin"));

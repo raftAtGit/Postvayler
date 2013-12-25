@@ -19,7 +19,9 @@ public class Person implements Serializable {
 
 	public Person() {
 	}	
+	
 	public Person(String name) {
+		this(); // since there is a call to this() constructor, code will not be injected here 
 		this.name = name;
 	}
 
