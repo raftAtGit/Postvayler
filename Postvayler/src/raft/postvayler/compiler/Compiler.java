@@ -34,7 +34,11 @@ import javassist.CtNewConstructor;
 import javassist.CtNewMethod;
 import javassist.Modifier;
 import javassist.NotFoundException;
+import javassist.bytecode.AccessFlag;
+import javassist.bytecode.FieldInfo;
+import javassist.bytecode.MethodInfo;
 import javassist.bytecode.SignatureAttribute;
+import javassist.bytecode.SyntheticAttribute;
 import raft.postvayler.Include;
 import raft.postvayler.Persist;
 import raft.postvayler.Persistent;
@@ -291,8 +295,11 @@ public class Compiler {
 
 	private void instrumentTree(Tree tree) throws Exception {
 		// cleans previously injected code
+//		for (Node rootNode : tree.roots.values()) {
+//			clean(rootNode);
+//		}
 		for (Node rootNode : tree.roots.values()) {
-			clean(rootNode);
+			checkCorrectlyInstrumented(rootNode);
 		}
 		
 		for (Node rootNode : tree.roots.values()) {
@@ -334,13 +341,16 @@ public class Compiler {
 	}
 
 	private void injectIsPersistent(Node node) throws Exception {
+		if (node.compiled)
+			return;
+		
 		CtClass clazz = node.clazz;
 		
 		clazz.addInterface(pool.get(IsPersistent.class.getName()));
 		System.out.println("added IsPersistent interface to " + clazz.getName());
 		
-		// TODO optimization: we can make __postvayler_Id private final if there are no subclasses of it 
-		clazz.addField(CtField.make("protected Long __postvayler_Id;", clazz));
+		// TODO optimization: we can make __postvayler_Id private final if there are no subclasses of it
+		clazz.addField(makeSynthetic(CtField.make("protected Long __postvayler_Id;", clazz)));
 		System.out.println("added Long __postvaylerId field to " + clazz.getName());
 		
 		// implement the IsPersistent interface
@@ -360,6 +370,9 @@ public class Compiler {
 	}
 
 	private void instrumentNode(Node node) throws Exception {
+		if (node.compiled)
+			return;
+		
 		CtClass clazz = node.clazz;
 		
 		// add a static final field for Root class to mark this class as enhanced
@@ -413,6 +426,30 @@ public class Compiler {
 		}
 	}
 	
+	/** recursively checks tree if it's already instrumented for same root 
+	* TODO a more detailed check is necessary I suppose
+	 * */
+	private void checkCorrectlyInstrumented(Node node) throws Exception {
+		String classSuffix = getClassNameForJavaIdentifier(node.clazz.getName());
+		try {
+			String fieldName = "__postvayler_root_" + classSuffix;
+			CtField field = node.clazz.getField(fieldName);
+			if (field.getType() != pool.get(String.class.getName())) 
+				throw new CompileException("Unexpected type " + field.getType().getName() + " of field " + fieldName + " @ " + node.clazz.getName());
+			String value = (String) field.getConstantValue();
+			if (!rootClassName.equals(value)) 
+				throw new CompileException("Class " + node.clazz.getName() + " is compiled for another root " + value);
+			node.compiled = true;
+		} catch (NotFoundException e) {
+			// ok not instrumented
+		}
+		
+		for (Node sub : node.subClasses.values()) {
+			checkCorrectlyInstrumented(sub);
+		}
+	}
+	
+	
 	/** removes all existing instrumentation by Postvayler. this is necessary to allow running compiler on same classes again */
 	private void cleanClass(CtClass clazz) throws Exception {
 		for (CtField field : clazz.getDeclaredFields()) {
@@ -421,8 +458,11 @@ public class Compiler {
 				System.out.println("removed old field " + clazz.getName() + "." + field.getName());
 			}
 		}
+		// TODO: a serious flaw here: when compiler is re-run on same class and previosly added @Persist and @Synch methods are removed,
+		// original methods are lost!!    
 		for (CtMethod method : clazz.getDeclaredMethods()) {
-			if (method.getName().startsWith("__postvayler_")) { 
+			if (method.getName().startsWith("__postvayler_")) {
+				System.out.println(method.getMethodInfo().getAttribute(SyntheticAttribute.tag));
 				clazz.removeMethod(method);
 				System.out.println("removed old method " + method.getLongName());
 			}
@@ -502,6 +542,7 @@ public class Compiler {
 		CtMethod copy = CtNewMethod.copy(method, method.getDeclaringClass(), null);
 		String newName = "__postvayler__" + method.getName();
 		copy.setName(newName);
+		makeSynthetic(copy);
 		makePrivate(copy);
 		method.getDeclaringClass().addMethod(copy);
 		System.out.println("renamed " + method.getLongName() + " to " + copy.getLongName());
@@ -708,6 +749,19 @@ public class Compiler {
 		return behavior;
 	}
 	
+	private static <T extends CtBehavior> T makeSynthetic(T behavior) throws Exception {
+		MethodInfo info = behavior.getMethodInfo();
+		info.setAccessFlags(info.getAccessFlags() | AccessFlag.SYNTHETIC);
+		info.addAttribute(new SyntheticAttribute(info.getConstPool()));
+		return behavior;
+	}
+	
+	private static <T extends CtField> T makeSynthetic(T field) throws Exception {
+		FieldInfo info = field.getFieldInfo();
+		info.setAccessFlags(info.getAccessFlags() | AccessFlag.SYNTHETIC);
+		info.addAttribute(new SyntheticAttribute(info.getConstPool()));
+		return field;
+	}
 	
 	private static String getClassNameForJavaIdentifier(String className) {
 		return className.replace('.', '_').replace('$', '_');
@@ -815,6 +869,7 @@ public class Compiler {
 	private static class Node {
 		final CtClass clazz;
 		final Map<String, Node> subClasses = new TreeMap<String, Node>();
+		boolean compiled;
 		boolean isRoot;
 
 		private Node(CtClass clazz) {

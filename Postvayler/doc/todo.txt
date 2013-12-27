@@ -2,6 +2,8 @@
 * add a clock facility to be used instead of System.currentTimeMillis(). stopping the clock during tx seems as the best option.
 * remove previously injected code when compiler is re-run. at the moment the injected methods and fields are removed 
 but the code injected into constructors is not removed. also field initializers is not removed due to a Javaassist bug: https://issues.jboss.org/browse/JASSIST-140
+* a serious flaw above: when compiler is re-run on same class and previosly added @Persist and @Synch methods are removed,
+original methods are lost!! (Fixed for now not re-compiling if a class is already compiled for same root. a more detailed check is necessary I suppose)
 * seems as PersistInSynchException can be relaxed with synching on root at @Persist methods. this will have a slight 
 overhead but will be much user friendly. making this behaviour default but optional in compiler makes sense.
 * proper encapsulation. at the moment many things are public and anyone can crash the system with a simple cast and java call
@@ -19,3 +21,6 @@ overhead but will be much user friendly. making this behaviour default but optio
 * follow the white TODO's in the code ;)
 * what else?
 
+
+* a second thinking suggests that, compiling against a specific root is not actually necessary. root class can be wrapped 
+in a container with the pool and the two can be used as preveyler's root.  
