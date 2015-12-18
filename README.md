@@ -37,7 +37,7 @@ Now, add as many books as you want to your library, kill your program and when y
 
 Note, the call to Postvayler.create(..) is only required for the root of object graph. All other objects are created in regular way, either with the *new* oprerator or via factories, builders whatever. As it is, Postvayler is quite flexible, *other objects* may be other instances of *root* class, subclasses/superclasses of it, or instances of a completely different class hierarchy.
 
-The only requirement to be persisted is to be reachable directly or indirectly from the root. For sure, there is no point in persisting an object that should soon be garbage collected.
+The only requirement to be persisted is to be reachable directly or indirectly from the root. For sure, there is no point in persisting an object that should soon be garbage collected or/else will not be accesible in next JVM session.
 
 ### How it works
 
