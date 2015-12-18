@@ -35,6 +35,10 @@ Library library = Postvayler.create(new Library());
 ```
 Now, add as many books as you want to your library, kill your program and when you restart it the previously added books will be in your library.
 
+Note, the call to Postvayler.create(..) is only required for the root of object graph. All other objects are created in regular way, either with the *new* oprerator or via factories, builders whatever. As it is, Postvayler is quite flexible, *other objects* may be other instances of *root* class, subclasses/superclasses of it, or instances of a completely different class hierarchy.
+
+The only requirement to be persisted is to be reachable directly or indirectly from the root. For sure, there is no point in persisting an object that should soon be garbage collected.
+
 ### How it works
 
 Postvayler uses [Prevayler](http://prevayler.org/) for persistance. Prevayler is a brilliant library to persist POJO's. In short it says: 
@@ -72,7 +76,7 @@ private void __postvayler_addBook(Book book) {
 ```
 As can been seen, if there is no *Postvayler context* around, the object bahaves like the original POJO with an ignorable overhead.
 
-Constructors of *@Persistent* classes are also instrumented to keep track of of them.
+Constructors of *@Persistent* classes are also instrumented to keep track of of them. They are pooled weekly so GC works as expected.
 
 Well, that's it in a glance :) If interested, have a look at the [Bank sample](Postvayler/samples/raft/postvayler/samples/bank) and the [emulated Bank sample](Postvayler/samples/raft/postvayler/samples/_bank) where the injected bytecode is manually added to demonstrate what is going on.
 
