@@ -66,11 +66,20 @@
 	<target name="make-jar" depends="init, compile" >
 		<jar destfile="${build}/postvayler.jar" basedir="${classes}" >
 
+			<exclude name="raft/postvayler/samples/**/*" />
 			<include name="raft/postvayler/**/*" />
 		</jar>
 	</target>
 				
-	<target name="build" depends="init, compile, make-jar" >
+	<target name="make-agent-jar" depends="init, compile" >
+		<jar destfile="${build}/postvayler-agent.jar" basedir="${classes}" manifest="src/MANIFEST.MF" >
+
+			<exclude name="raft/postvayler/samples/**/*" />
+			<include name="raft/postvayler/**/*" />
+		</jar>
+	</target>
+	
+	<target name="build" depends="init, compile, make-jar, make-agent-jar" >
 	</target>
 
     <target name="javadoc" depends="compile">

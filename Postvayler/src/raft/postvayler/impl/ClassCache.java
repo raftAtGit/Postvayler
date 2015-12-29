@@ -20,7 +20,7 @@ public class ClassCache {
 		this.rootClassName = rootClassName;
 	}
 
-	// no need synchronize this, at worst case same class is validate more than once
+	// no need synchronize this, at worst case same class is validated more than once
 	public void validateClass(Class<?> clazz) throws Exception {
 		if (knownInstrumentedClasses.contains(clazz))
 			return;

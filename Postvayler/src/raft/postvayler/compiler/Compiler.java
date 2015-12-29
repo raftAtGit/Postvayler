@@ -5,7 +5,6 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.PrintStream;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.text.MessageFormat;
@@ -20,7 +19,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeMap;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 
@@ -35,10 +33,15 @@ import javassist.CtNewMethod;
 import javassist.Modifier;
 import javassist.NotFoundException;
 import javassist.bytecode.AccessFlag;
+import javassist.bytecode.AnnotationsAttribute;
 import javassist.bytecode.FieldInfo;
 import javassist.bytecode.MethodInfo;
 import javassist.bytecode.SignatureAttribute;
 import javassist.bytecode.SyntheticAttribute;
+import javassist.bytecode.annotation.Annotation;
+import javassist.bytecode.annotation.ArrayMemberValue;
+import javassist.bytecode.annotation.ClassMemberValue;
+import javassist.bytecode.annotation.MemberValue;
 import raft.postvayler.Include;
 import raft.postvayler.Persist;
 import raft.postvayler.Persistent;
@@ -61,37 +64,42 @@ public class Compiler {
 	private static final boolean DEBUG = false;
 	
 	public static void main(String[] args) throws Exception {
-		String rootClass = args[0];
+		String rootClassName = args[0];
 		
-		Compiler compiler = new Compiler(rootClass);
+		Compiler compiler = new Compiler(rootClassName);
 		compiler.run();
 	}
 	
 	private final String rootClassName;
+	private final Tree tree;
+	
 	private boolean scanSubPackages = false; 
 	
 	
 //	private final String outputFolder;
 	private CtClass contextClass;
-
 	
-	private final ClassPool pool;
+	private final ClassPool classPool;
 	
 	private final Set<String> scannedClasses = new HashSet<String>();
 	private final Set<String> scannedPackages = new HashSet<String>();
 	private final Map<String, CtClass> packageQueue = new LinkedHashMap<String, CtClass>();
+
 	
-	public Compiler(String rootClass) {
-		this.rootClassName = rootClass; 
+	/** 
+	 * @param writeClasses if true classes will be written to same location they are read. 
+	 * this only works if they are loaded from directory (as opposed to jar)  
+	 * 
+	 * */
+	public Compiler(String rootClassName) throws Exception {
+		this.rootClassName = rootClassName; 
 		
-		this.pool = ClassPool.getDefault();
+		this.classPool = new ClassPool(true);
 		
-		pool.importPackage("raft.postvayler");
-		pool.importPackage("raft.postvayler.impl");
-	}
-	
-	public synchronized void run() throws Exception {
-		CtClass rootClass = pool.get(rootClassName);
+		classPool.importPackage("raft.postvayler");
+		classPool.importPackage("raft.postvayler.impl");
+
+		CtClass rootClass = classPool.get(rootClassName);
 		if (rootClass.getAnnotation(Persistent.class) == null)
 			throw new CompileException("root class " + rootClassName + " is not annotated with @Persistent");
 		
@@ -103,7 +111,7 @@ public class Compiler {
 		if (rootClass.getPackageName() == null)
 			throw new CompileException("@Persistent classes in default package is not supported " + rootClass.getName());
 		
-		Tree tree = createTree(rootClass);
+		this.tree = createTree(rootClass);
 		
 		System.out.println("-- scanned classes --");
 		for (String scanned : scannedClasses)
@@ -113,30 +121,51 @@ public class Compiler {
 		tree.print(System.out);
 		System.out.println("----");
 		
+		for (Node rootNode : tree.roots.values()) {
+			checkCorrectlyInstrumented(rootNode);
+		}
+	}
+	
+	/** does the actual instrumentation. creates Postvayler context class and modifies persistent classes */
+	public void run() throws Exception {
 		createContextClass();
+		writeContextClass();
 		
 		instrumentTree(tree);
-//		instrumentClass(rootClass);
 	}
 
-	private void createContextClass() throws Exception {
-		// TODO we need better encapsulation for pravayler and inTransaction fields
+	Tree getTree() {
+		return tree;
+	}
+
+	ClassPool getClassPool() {
+		return classPool;
+	}
+
+	public CtClass createContextClass() throws Exception {
+		// TODO we need better encapsulation for Prevayler and inTransaction fields
 		
-		CtClass rootClazz = pool.get(rootClassName);
-		contextClass = pool.makeClass(rootClazz.getPackageName() + ".__Postvayler");
-		contextClass.setSuperclass(pool.get(Context.class.getName()));
+		CtClass rootClazz = classPool.get(rootClassName);
+		contextClass = classPool.makeClass(rootClazz.getPackageName() + ".__Postvayler");
+		contextClass.setSuperclass(classPool.get(Context.class.getName()));
 		
 		contextClass.addField(CtField.make("public static final Class rootClass = " + rootClassName + ".class;", contextClass));
 		contextClass.addConstructor(CtNewConstructor.make(createSource("Context.init.java.txt", rootClassName), contextClass));
 		
-		contextClass.writeFile(getClassWriteDir(rootClazz));
+		return contextClass;
 	}
 
+	private void writeContextClass() throws Exception {
+		CtClass rootClazz = classPool.get(rootClassName);
+		contextClass.writeFile(getClassWriteDirectory(rootClazz));
+	}
+
+	
 	private Tree createTree(CtClass rootClass) throws Exception {
 		Tree tree = new Tree();
 		
 		scanPackage(tree, rootClass);
-		tree.findNode(rootClass).isRoot = true;
+		tree.findNode(rootClassName).isRoot = true;
 		
 		while (!packageQueue.isEmpty()) {
 			String nextPackage = packageQueue.keySet().iterator().next(); 
@@ -177,7 +206,7 @@ public class Compiler {
 			packageQueue.put(packageName, clazz);
 		
 		for (Object ref : clazz.getRefClasses()) {
-			CtClass refClass = pool.get((String)ref);
+			CtClass refClass = classPool.get((String)ref);
 			String refPackage = refClass.getPackageName();
 			
 			if (!scannedPackages.contains(refPackage))
@@ -185,13 +214,29 @@ public class Compiler {
 		}
 		
 		if (clazz.hasAnnotation(Include.class)) {
-			Include include = (Include) clazz.getAnnotation(Include.class);
-			// TODO will this work with javaaagent? since class itself is already loaded in this scenario 
-			for (Class<?> cls : include.value()) {
-				String includedPackage = cls.getPackage().getName();
+			AnnotationsAttribute annotations = (AnnotationsAttribute) clazz.getClassFile().getAttribute(AnnotationsAttribute.visibleTag);
+			Annotation annotation = annotations.getAnnotation(Include.class.getName());
+			System.out.println(annotation);
+			ArrayMemberValue memberValue = (ArrayMemberValue) annotation.getMemberValue("value");
+			MemberValue[] includedClassNames = memberValue.getValue();
+			System.out.println(Arrays.asList(includedClassNames));
+			
+			for (MemberValue value : includedClassNames) {
+				String includedClassName = ((ClassMemberValue)value).getValue();
+				CtClass includedClass = classPool.get(includedClassName);
+				String includedPackage = includedClass.getPackageName();
 				if (!scannedPackages.contains(includedPackage))
-					packageQueue.put(includedPackage, pool.get(cls.getName()));
+					packageQueue.put(includedPackage, includedClass);
+				
 			}
+			// this doesnt work with javaagent. since class itself is already loaded in this scenario. 
+			// we need to access annotation in javaassist way as above  
+//			Include include = (Include) clazz.getAnnotation(Include.class);
+//			for (Class<?> cls : include.value()) {
+//				String includedPackage = cls.getPackage().getName();
+//				if (!scannedPackages.contains(includedPackage))
+//					packageQueue.put(includedPackage, classPool.get(cls.getName()));
+//			}
 		}
 		
 		
@@ -236,7 +281,7 @@ public class Compiler {
 		if (objectType instanceof SignatureAttribute.ClassType) {
 			SignatureAttribute.ClassType classType = (SignatureAttribute.ClassType) objectType;
 			if (!scannedClasses.contains(classType.getName())) {
-				scanClass(pool.get(classType.getName()));
+				scanClass(classPool.get(classType.getName()));
 			}  
 			SignatureAttribute.TypeArgument[] typeArguments = classType.getTypeArguments();
 			if (typeArguments== null)
@@ -298,25 +343,23 @@ public class Compiler {
 //		for (Node rootNode : tree.roots.values()) {
 //			clean(rootNode);
 //		}
-		for (Node rootNode : tree.roots.values()) {
-			checkCorrectlyInstrumented(rootNode);
-		}
 		
 		for (Node rootNode : tree.roots.values()) {
 			
 			// inject interfaces to top level classes
 			injectIsPersistent(rootNode);
-			instrumentNode(rootNode);
+			instrumentNodeRecursively(rootNode);
 		}
 	}
 	
+	/** inject {@link IsRoot} interface and related fields to implement it */
 	private void injectIsRoot(Node node) throws Exception {
 		CtClass clazz = node.clazz;
 		
-		clazz.addInterface(pool.get(IsRoot.class.getName()));
+		clazz.addInterface(classPool.get(IsRoot.class.getName()));
 		System.out.println("added IsRoot interface to " + clazz.getName());
 			
-		clazz.addInterface(pool.get(Storage.class.getName()));
+		clazz.addInterface(classPool.get(Storage.class.getName()));
 		System.out.println("added Storage interface to " + clazz.getName());
 		
 		clazz.addField(CtField.make("private final Pool __postvayler_pool = new Pool();", clazz));
@@ -340,13 +383,14 @@ public class Compiler {
 		System.out.println("added public File takeSnapshot() method to " + clazz.getName());
 	}
 
-	private void injectIsPersistent(Node node) throws Exception {
+	/** inject {@link IsPersistent} interface and related fields to implement it */
+	void injectIsPersistent(Node node) throws Exception {
 		if (node.compiled)
 			return;
 		
 		CtClass clazz = node.clazz;
 		
-		clazz.addInterface(pool.get(IsPersistent.class.getName()));
+		clazz.addInterface(classPool.get(IsPersistent.class.getName()));
 		System.out.println("added IsPersistent interface to " + clazz.getName());
 		
 		// TODO optimization: we can make __postvayler_Id private final if there are no subclasses of it
@@ -369,13 +413,13 @@ public class Compiler {
 		}
 	}
 
-	private void instrumentNode(Node node) throws Exception {
+	CtClass instrumentNode(Node node) throws Exception {
 		if (node.compiled)
-			return;
+			return node.clazz;
 		
 		CtClass clazz = node.clazz;
 		
-		// add a static final field for Root class to mark this class as enhanced
+		// add a static final field for Root class to mark this class as instrumented
 		String classSuffix = getClassNameForJavaIdentifier(clazz.getName());
 		clazz.addField(CtField.make("public static final String __postvayler_root_" + classSuffix + " = \"" + rootClassName + "\";", clazz));
 		
@@ -407,13 +451,23 @@ public class Compiler {
 				createSynch(method);
 			}
 		}
+		return clazz;
+	}
+	
+	/** modifies constructors, {@link Persist} and {@link Synch} methods. recursively descents into subclasses  in tree.
+	 * also writes modified class file to disk. */
+	private void instrumentNodeRecursively(Node node) throws Exception {
+		if (node.compiled)
+			return;
 		
-		String dir = getClassWriteDir(clazz);
-		System.out.println("writing class " + clazz.getName() + " to " + dir);
-		clazz.writeFile(dir);
+		CtClass clazz = instrumentNode(node);
+		
+		String directory = getClassWriteDirectory(clazz);
+		System.out.println("writing class " + clazz.getName() + " to " + directory);
+		clazz.writeFile(directory);
 		
 		for (Node subNode : node.subClasses.values()) {
-			instrumentNode(subNode);
+			instrumentNodeRecursively(subNode);
 		}
 	}
 
@@ -434,7 +488,7 @@ public class Compiler {
 		try {
 			String fieldName = "__postvayler_root_" + classSuffix;
 			CtField field = node.clazz.getField(fieldName);
-			if (field.getType() != pool.get(String.class.getName())) 
+			if (field.getType() != classPool.get(String.class.getName())) 
 				throw new CompileException("Unexpected type " + field.getType().getName() + " of field " + fieldName + " @ " + node.clazz.getName());
 			String value = (String) field.getConstantValue();
 			if (!rootClassName.equals(value)) 
@@ -535,7 +589,7 @@ public class Compiler {
 
 	private void createTransaction(CtMethod method) throws Exception {
 		if (method.getAnnotation(Synch.class) != null)
-			throw new CompileException("@Synch and @Persist cannot be on same method" + method.getLongName());
+			throw new CompileException("@Synch and @Persist cannot be on the same method" + method.getLongName());
 		if (Modifier.isAbstract(method.getModifiers())) 
 			throw new CompileException("abstract method cannot be @Persist " + method.getLongName());
 
@@ -564,7 +618,7 @@ public class Compiler {
 				
 		if (DEBUG) System.out.println(source);
 		method.setBody(source);
-		method.getMethodInfo().rebuildStackMap(pool);
+		method.getMethodInfo().rebuildStackMap(classPool);
 		
 		// TODO remove @Persist? from both source and copy?
 	}
@@ -634,7 +688,7 @@ public class Compiler {
 		
 		if (DEBUG) System.out.println(source);
 		method.setBody(source);
-		method.getMethodInfo().rebuildStackMap(pool);
+		method.getMethodInfo().rebuildStackMap(classPool);
 		
 		// TODO remove @Persist? from both source and copy?
 	}
@@ -671,9 +725,9 @@ public class Compiler {
 		return s;
 	}
 	
-	private String getClassWriteDir(CtClass clazz) throws Exception {
+	private String getClassWriteDirectory(CtClass clazz) throws Exception {
 		String className = clazz.getName();
-		String path = pool.find(className).toURI().toString();
+		String path = classPool.find(className).toURI().toString();
 		int index = path.indexOf(className.replace('.', '/') + ".class");
 		if (index < 0)
 			throw new IllegalStateException("couldnt find class dir in path " + path);
@@ -688,7 +742,7 @@ public class Compiler {
 	
 	private List<CtClass> getPackageClasses(CtClass clazz) throws Exception {
 		String className = clazz.getName();
-		String path = pool.find(className).toURI().toString();
+		String path = classPool.find(className).toURI().toString();
 		int index = path.indexOf(className.replace('.', '/') + ".class");
 		if (index < 0)
 			throw new IllegalStateException("couldnt find class dir in path " + path);
@@ -705,7 +759,7 @@ public class Compiler {
 					continue;
 				
 				String clsName = packageName + "." + file.substring(0, file.length() - 6); // omit the .class part
-				result.add(pool.get(clsName));
+				result.add(classPool.get(clsName));
 			}			
 		} else if (path.startsWith("jar:file:/")) {
 			String packagePath = packageName.replace('.', '/');
@@ -731,7 +785,7 @@ public class Compiler {
 						continue;
 					
 					String clsName = packageName + "." + subPart.replace('/', '.');
-					result.add(pool.get(clsName));
+					result.add(classPool.get(clsName));
 				}
 			} finally {
 				jarFile.close();
@@ -767,7 +821,7 @@ public class Compiler {
 		return className.replace('.', '_').replace('$', '_');
 	}
 
-	private String createSource(String fileName, Object... arguments) throws Exception {
+	public String createSource(String fileName, Object... arguments) throws Exception {
 		return MessageFormat.format(readFile(fileName), arguments);
 	}
 	
@@ -814,7 +868,7 @@ public class Compiler {
 		return false;
 	}
 	
-	private static List<CtClass> getPersistentHierarchy(CtClass clazz) throws Exception {
+	static List<CtClass> getPersistentHierarchy(CtClass clazz) throws Exception {
 		List<CtClass> list = new LinkedList<CtClass>();
 		
 		while (isPersistent(clazz)) {
@@ -822,109 +876,5 @@ public class Compiler {
 			clazz = clazz.getSuperclass();
 		}
 		return list;
-	}
-	
-	private static class Tree {
-		
-		final Map<String, Node> roots = new TreeMap<String, Node>();
-		
-		List<CtClass> add(CtClass clazz) throws Exception {
-			List<CtClass> hierarchy = getPersistentHierarchy(clazz);
-			
-			CtClass mostSuper = hierarchy.get(0);
-			
-			Node rootNode = roots.get(mostSuper.getName());
-			if (rootNode == null) {
-				rootNode = new Node(mostSuper);
-				roots.put(mostSuper.getName(), rootNode);
-			}
-			
-			rootNode.add(hierarchy);
-			return hierarchy;
-		}
-
-		Node findNode(CtClass clazz) {
-			Node root = roots.get(clazz.getName());
-			if (root != null)
-				return root;
-			
-			for (Node node : roots.values()) {
-				Node n = node.findNode(clazz);
-				if (n != null)
-					return n;
-			}
-			
-			return null;
-		}
-
-		void print(PrintStream out) {
-			for (Node node : roots.values()) {
-				node.print(out, 0);
-			}
-		}
-
-	}	
-	
-	/** a node in class tree */
-	private static class Node {
-		final CtClass clazz;
-		final Map<String, Node> subClasses = new TreeMap<String, Node>();
-		boolean compiled;
-		boolean isRoot;
-
-		private Node(CtClass clazz) {
-			this.clazz = clazz;
-		}
-
-		void add(List<CtClass> hierarchy) {
-			assert (hierarchy.get(0) == clazz);
-			
-			if (hierarchy.size() == 1)
-				return;
-			
-			CtClass subClass = hierarchy.get(1);
-			Node subNode = subClasses.get(subClass.getName());
-			
-			if (subNode == null) {
-				subNode = new Node(subClass);
-				subClasses.put(subClass.getName(), subNode);
-			}
-			
-			subNode.add(hierarchy.subList(1, hierarchy.size()));
-		}
-		
-		Node findNode(CtClass clz) {
-			if (clazz == clz)
-				return this;
-			
-			Node sub = subClasses.get(clz.getName());
-			if (sub != null)
-				return sub;
-			
-			for (Node node : subClasses.values()) {
-				Node n = node.findNode(clz);
-				if (n != null)
-					return n;
-			}
-			
-			return null;
-		}
-		
-		void print(PrintStream out, int indentation) {
-			out.println(indent(indentation) + clazz.getName() + (isRoot ? " (*)" : ""));
-			
-			for (Node subNode : subClasses.values()) {
-				subNode.print(out, indentation + 4);
-			}
-		}
-
-
-		private String indent(int count) {
-			String s = "";
-			for (int i = 0; i < count; i++) {
-				s += " ";
-			}
-			return s;
-		}
 	}
 }

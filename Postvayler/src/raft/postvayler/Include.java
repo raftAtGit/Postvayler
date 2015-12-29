@@ -6,9 +6,8 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * TODO implement me in compiler.
- *  
- * Includes a class and its package to be scanned. Can be in any @Persistent class. 
+ * Includes a class and its package to be scanned. Can be in any @Persistent class. This is typically required when 
+ * some classes cannot be reached by class and package scanning.  
  * 
  * @author  r a f t
  */

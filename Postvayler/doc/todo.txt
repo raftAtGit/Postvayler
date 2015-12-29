@@ -15,7 +15,9 @@ overhead but will be much user friendly. making this behaviour default but optio
 * support for spring dependency injection (at least injecting root as a bean to other spring beans)
 * some documentation
 * adapt prevayler samples to postvayler
-* runtime bytecode injection via javaagent or custom class loader (classloader seems impossible?) 
+* debug info in instrumented code, so debugging and breakpoints will be more understandable
+* runtime bytecode injection via javaagent or custom class loader. this is partially done again as a proof of concept but cannot cooperate with another agent at the moment. 
+* classloader for above seems impossible? but not Spring's instrumentation class loaders seem possible. as they load class with delegating to parent and throw away.  
 * check language spec if it's ok to throw a checked exception from an undeclared method (found nothing relevant in spec)
 * check language spec if GC can break in current design. even if so, we can always trick GC not collect our objects ;)  (found nothing relevant in spec)
 * follow the white TODO's in the code ;)

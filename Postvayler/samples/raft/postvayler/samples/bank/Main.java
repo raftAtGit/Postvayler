@@ -7,7 +7,6 @@ import java.util.Random;
 
 import raft.postvayler.Postvayler;
 import raft.postvayler.impl.Context;
-import raft.postvayler.samples.bank.secret.SecretCustomer;
 
 /**
  * Entry point of sample.
@@ -138,7 +137,8 @@ public class Main {
 			if (!equals(customer.getName(), pojoCustomer.getName()))
 				throw new Exception("test failed");
 		} catch (UnsupportedOperationException e) {
-			assert ((customer instanceof SecretCustomer) && (pojoCustomer instanceof SecretCustomer)); 
+			assert (customer.getClass().getName().equals("raft.postvayler.samples.bank.secret.SecretCustomer") 
+					&& (pojoCustomer.getClass().getName().equals("raft.postvayler.samples.bank.secret.SecretCustomer"))); 
 		}
 
 		if (!equals(customer.getPhone(), pojoCustomer.getPhone()))
@@ -189,7 +189,7 @@ public class Main {
 	private static void populateBank(Bank bank, Random random) throws Exception {
 		
 		// this call demonstrates @Include is implemented at compiler 
-		bank.addCustomer(new SecretCustomer());
+		bank.addCustomer((Customer) Class.forName("raft.postvayler.samples.bank.secret.SecretCustomer").newInstance());
 		
 		// add some initial customers and accounts and also owner
 		bank.setOwner(new RichPerson("kingpin"));
