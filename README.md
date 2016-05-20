@@ -78,6 +78,8 @@ As can been seen, if there is no *Postvayler context* around, the object bahaves
 
 Constructors of *@Persistent* classes are also instrumented to keep track of of them. They are pooled weekly so GC works as expected.
 
+There is also a proof of concept -javaagent support for [runtime instrumentation](https://docs.oracle.com/javase/8/docs/api/java/lang/instrument/package-summary.html).
+
 Well, that's it in a glance :) If interested, have a look at the [Bank sample](Postvayler/samples/raft/postvayler/samples/bank) and the [emulated Bank sample](Postvayler/samples/raft/postvayler/samples/_bank) where the injected bytecode is manually added to demonstrate what is going on.
 
 Cheers and happy persisting,
