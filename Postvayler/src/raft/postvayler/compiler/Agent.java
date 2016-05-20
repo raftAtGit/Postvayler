@@ -14,13 +14,13 @@ public class Agent {
     /** command line agent 
      * @throws Exception */
     public static void premain(String rootClassName, Instrumentation inst) throws Exception {
-    	inst.addTransformer(new Transformer(rootClassName, inst));
+    	inst.addTransformer(new Transformer(rootClassName));
     }
    
     /** runtime attach agent 
      * @throws Exception */
     public static void agentmain(String rootClassName, Instrumentation inst) throws Exception {
-    	inst.addTransformer(new Transformer(rootClassName, inst));
+    	inst.addTransformer(new Transformer(rootClassName));
     }
    
     /** attach to current VM and load agent (requires SUN tools VirtualMachine) */

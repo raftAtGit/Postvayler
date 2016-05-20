@@ -2,7 +2,6 @@ package raft.postvayler.compiler;
 
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.IllegalClassFormatException;
-import java.lang.instrument.Instrumentation;
 import java.security.ProtectionDomain;
 import java.util.HashMap;
 import java.util.Map;
@@ -11,22 +10,16 @@ import javassist.CtClass;
 
 /** {@link ClassFileTransformer} for load time weaving. This is a proof of concept implementation, works as it is,
  * but cannot cooperate with other agents at the moment*/
-class Transformer implements ClassFileTransformer {
+public class Transformer implements ClassFileTransformer {
 	 
-	private final String rootClassName;
 	private final Compiler compiler;
 	private final Tree tree;
 
 	private CtClass contextClass;
 	private Map<String, CtClass> cachedClasses = new HashMap<String, CtClass>();
-	private Instrumentation instrumentation; 
 	
-	Transformer(String rootClassName, Instrumentation inst) throws Exception {
-		this.rootClassName = rootClassName;
-		this.instrumentation = inst;
-		
+	public Transformer(String rootClassName) throws Exception {
 		this.compiler = new Compiler(rootClassName); 
-		
 		this.tree = compiler.getTree();
 	}
 
@@ -34,13 +27,21 @@ class Transformer implements ClassFileTransformer {
     public byte[] transform(ClassLoader loader, String className, Class<?> classBeingRedefined,
                   ProtectionDomain protectionDomain, byte[] classfileBuffer) throws IllegalClassFormatException {
 
+    	
+		// Tomcat's classloader triggers ClassFileTransformer while a new class is created via Javaassist 
+		// which results in ClassCircularityError. so avoid any operation if compiler is in createContextClass method
+    	if (compiler.inCreateContextClassMethod) {
+//    		System.out.println("warning increateContextClass");
+    		return null;
+    	}
+    	
     	try {
 	    	if (this.contextClass == null) {
 	    		this.contextClass = compiler.createContextClass();
 	    		// TODO is this enough for web apps?
 	    		contextClass.toClass(loader, protectionDomain);
 	    	}
-	    	// TODO load class via ByteArrayClassPath into javaassit and make modifications
+	    	// TODO load class via ByteArrayClassPath into javaassist and make modifications
 	
 	    	System.out.println("transform: " + className);
 
@@ -52,11 +53,8 @@ class Transformer implements ClassFileTransformer {
 	    		// none of our business, class is not in persistent class hierarchy, just omit it
 	    		return null;
 	    	}
-//	    	if (true)
-//	    		return null;
 	    	
 	    	System.out.println("--instrumenting " + className);
-	    	
 	    	
 	    	CtClass cached = cachedClasses.get(className);
 	    	if (cached != null) {
@@ -84,22 +82,13 @@ class Transformer implements ClassFileTransformer {
 	    		}
 	    	}
     		CtClass clazz = compiler.instrumentNode(node);
-    		//clazz.toClass(loader, protectionDomain);
 	    	return clazz.toBytecode();
-    	
+	    	
     	} catch (Exception e) {
     		e.printStackTrace();
     		throw new RuntimeException(e);
     	}
     }
     
-//    private void printLoadedSampleClasses() {
-//    	System.out.println("-- loaded classes");
-//    	for (Class c : inst.getAllLoadedClasses()) {
-//    		if (c.getName().startsWith("raft.postvayler.samples.bank"))
-//    			System.out.println(c.getName());
-//    	}
-//    	System.out.println("--");
-//    } 
 
 }

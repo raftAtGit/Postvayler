@@ -22,6 +22,7 @@ import java.util.Set;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 
+import javassist.ClassClassPath;
 import javassist.ClassPool;
 import javassist.CtBehavior;
 import javassist.CtClass;
@@ -95,6 +96,7 @@ public class Compiler {
 		this.rootClassName = rootClassName; 
 		
 		this.classPool = new ClassPool(true);
+		classPool.insertClassPath(new ClassClassPath(getClass()));
 		
 		classPool.importPackage("raft.postvayler");
 		classPool.importPackage("raft.postvayler.impl");
@@ -142,19 +144,34 @@ public class Compiler {
 		return classPool;
 	}
 
-	public CtClass createContextClass() throws Exception {
+	boolean inCreateContextClassMethod = false;
+	
+	CtClass createContextClass() throws Exception {
 		// TODO we need better encapsulation for Prevayler and inTransaction fields
-		
-		CtClass rootClazz = classPool.get(rootClassName);
-		contextClass = classPool.makeClass(rootClazz.getPackageName() + ".__Postvayler");
-		contextClass.setSuperclass(classPool.get(Context.class.getName()));
-		
-		contextClass.addField(CtField.make("public static final Class rootClass = " + rootClassName + ".class;", contextClass));
-		contextClass.addConstructor(CtNewConstructor.make(createSource("Context.init.java.txt", rootClassName), contextClass));
-		
-		return contextClass;
+
+		// Tomcat's classloader triggers ClassFileTransformer while a new class is created via Javaassist 
+		// which results in ClassCircularityError. so mark that we are inside createContextClass() method and avoid 
+		// any operation in ClassFileTransformer
+		inCreateContextClassMethod = true;
+		try {
+			CtClass rootClazz = classPool.get(rootClassName);
+			contextClass = classPool.makeClass(rootClazz.getPackageName() + ".__Postvayler");
+			contextClass.setSuperclass(classPool.get(Context.class.getName()));
+			
+			contextClass.addField(CtField.make("public static final Class rootClass = " + rootClassName + ".class;", contextClass));
+			contextClass.addConstructor(CtNewConstructor.make(createSource("Context.init.java.txt", rootClassName), contextClass));
+			
+			return contextClass;
+		} finally {
+			inCreateContextClassMethod = false;
+		}
 	}
 
+	String getContextClassName() throws Exception {
+		CtClass rootClazz = classPool.get(rootClassName);
+		return rootClazz.getPackageName() + ".__Postvayler";
+	}
+	
 	private void writeContextClass() throws Exception {
 		CtClass rootClazz = classPool.get(rootClassName);
 		contextClass.writeFile(getClassWriteDirectory(rootClazz));
@@ -821,11 +838,11 @@ public class Compiler {
 		return className.replace('.', '_').replace('$', '_');
 	}
 
-	public String createSource(String fileName, Object... arguments) throws Exception {
+	private String createSource(String fileName, Object... arguments) throws Exception {
 		return MessageFormat.format(readFile(fileName), arguments);
 	}
 	
-	final Map<String, String> fileCache = new HashMap<String, String>();
+	private final Map<String, String> fileCache = new HashMap<String, String>();
 	
 	private String readFile(String fileName) throws Exception {
 		String cached = fileCache.get(fileName);
