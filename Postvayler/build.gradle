@@ -1,0 +1,63 @@
+apply plugin: 'java'
+apply plugin: 'maven-publish'
+
+group = 'raft.postvayler'
+version = '0.1-SNAPHOT'
+
+sourceCompatibility = '1.6'
+targetCompatibility = '1.6'
+
+sourceSets {
+    samples {
+    	java {
+    		srcDirs 'src/samples/java'
+    	}
+    }
+}
+
+repositories {
+	jcenter()
+}
+
+task sourcesJar(type: Jar, dependsOn: classes) {
+    classifier = 'sources'
+    from sourceSets.main.allSource
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            from components.java
+
+            artifact sourcesJar {
+                classifier "sources"
+            }
+        }
+    }
+}
+
+
+dependencies {
+    
+	compile 'org.prevayler:prevayler-core:2.6',
+			'org.prevayler:prevayler-factory:2.6',
+			'org.javassist:javassist:3.20.0-GA',
+    		//'org.slf4j:slf4j-api:1.7.21',
+    		'org.springframework.boot:spring-boot-starter-aop:1.3.5.RELEASE'
+    		
+    testCompile 'junit:junit:4.12'
+    
+    samplesCompile sourceSets.main.output
+
+}
+
+configurations {
+	samplesCompile { extendsFrom compile }
+}
+
+
+jar {
+    manifest {
+    	from 'src/main/agent_manifest.txt'
+    }
+}

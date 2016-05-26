@@ -1,0 +1,3 @@
+Premain-Class: raft.postvayler.compiler.Agent
+Agent-Class: raft.postvayler.compiler.Agent
+Can-Retransform-Classes: true

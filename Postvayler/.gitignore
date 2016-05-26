@@ -1,3 +1,7 @@
 /persist
 /build
 /bin
+/.settings
+/.gradle
+/.project
+/.classpath
