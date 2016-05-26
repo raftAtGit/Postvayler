@@ -1,7 +1,0 @@
-// context class constructor
-
-// 0: root class name
-	 
-	public __Postvayler(org.prevayler.Prevayler prevayler, {0} root) '{'
-		super(prevayler, (IsRoot) root);
-	}
