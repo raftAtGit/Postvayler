@@ -44,25 +44,30 @@ public class ConstructorTransaction implements TransactionWithQuery<IsRoot, Long
 
 	@Override
 	public Long executeAndQuery(IsRoot root, Date date) throws Exception {
-		if (Context.isBound()) {
-			// regular run, just retrieve object from temp storage and put into pool
-			IsPersistent target = tempTargets.remove(tempTargetId);
-			if (target == null)
-				throw new Error("couldnt get object from temp pool, id: " + tempTargetId); // we throw error to halt Prevayler
-			return root.__postvayler_put(target);
-			
-		} else {
-			// recovery
-			Context.recoveryRoot = root;
-			try {
-				Constructor<IsPersistent> cons = constructor.getJavaConstructor();
-				cons.setAccessible(true);
-				IsPersistent target = cons.newInstance(arguments);
-				assert (target.__postvayler_getId() != null);
-				return null; // return type is not actually used in this case
-			} finally {
-				Context.recoveryRoot = null;
+		ClockBase.setDate(date);
+		try {
+			if (Context.isBound()) {
+				// regular run, just retrieve object from temp storage and put into pool
+				IsPersistent target = tempTargets.remove(tempTargetId);
+				if (target == null)
+					throw new Error("couldnt get object from temp pool, id: " + tempTargetId); // we throw error to halt Prevayler
+				return root.__postvayler_put(target);
+				
+			} else {
+				// recovery
+				Context.recoveryRoot = root;
+				try {
+					Constructor<IsPersistent> cons = constructor.getJavaConstructor();
+					cons.setAccessible(true);
+					IsPersistent target = cons.newInstance(arguments);
+					assert (target.__postvayler_getId() != null);
+					return null; // return type is not actually used in this case
+				} finally {
+					Context.recoveryRoot = null;
+				}
 			}
+		} finally {
+			ClockBase.setDate(null);
 		}
 	}
 

@@ -7,6 +7,7 @@ import javassist.ClassClassPath;
 import javassist.ClassPool;
 import javassist.CtClass;
 
+import org.prevayler.PrevaylerFactory;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.BeanCreationException;
 import org.springframework.beans.factory.NoSuchBeanDefinitionException;
@@ -29,7 +30,7 @@ class BeanProcessor implements BeanDefinitionRegistryPostProcessor, BeanPostProc
 
 	private static final String ROOT_BEAN_NAME = "postvayler.root";
 	
-	private String rootClassName;
+	private EnablePostvayler enablePostvayler;
 
 	/** Does nothing. */
 	@Override
@@ -46,10 +47,9 @@ class BeanProcessor implements BeanDefinitionRegistryPostProcessor, BeanPostProc
 		System.out.println("postProcessBeanDefinitionRegistry");
 		
 		try {
-			EnablePostvayler enablePostvayler = getConfigAnnotation(registry);
-			this.rootClassName = enablePostvayler.rootClass();
+			this.enablePostvayler = getConfigAnnotation(registry);
 			
-			BeanDefinitionBuilder definitionBuilder = BeanDefinitionBuilder.genericBeanDefinition(rootClassName);
+			BeanDefinitionBuilder definitionBuilder = BeanDefinitionBuilder.genericBeanDefinition(enablePostvayler.rootClass());
 			registry.registerBeanDefinition(ROOT_BEAN_NAME, definitionBuilder.getBeanDefinition());
 			
 		} catch (RuntimeException e) {
@@ -65,11 +65,19 @@ class BeanProcessor implements BeanDefinitionRegistryPostProcessor, BeanPostProc
 		if (!ROOT_BEAN_NAME.equals(beanName))
 			return bean;
 		
-		Assert.isTrue(bean.getClass().getName().equals(rootClassName));
+		Assert.isTrue(bean.getClass().getName().equals(enablePostvayler.rootClass()));
 		
 		try {
-			// TODO configure Postvayler here. perists directory, rollback support (food-tester) etc.
-			return Postvayler.create(bean);
+			// TODO configure Postvayler here. rollback support (food-tester) etc.
+			PrevaylerFactory<Object> factory = new PrevaylerFactory<Object>();
+			factory.configurePrevalentSystem(bean);
+			factory.configurePrevalenceDirectory("".equals(enablePostvayler.persistDir()) 
+					? "persist/" + bean.getClass().getName() : enablePostvayler.persistDir());
+			
+			return new Postvayler<Object>(bean)
+					.setPrevaylerFactory(factory)
+					.create();
+			
 		} catch (Exception e) {
 			throw new BeanCreationException("Couldnt create '[" + ROOT_BEAN_NAME + "'] via Postvayler", e);
 		}

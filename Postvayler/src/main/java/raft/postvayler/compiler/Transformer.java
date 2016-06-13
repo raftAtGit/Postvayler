@@ -27,7 +27,10 @@ public class Transformer implements ClassFileTransformer {
     public byte[] transform(ClassLoader loader, String className, Class<?> classBeingRedefined,
                   ProtectionDomain protectionDomain, byte[] classfileBuffer) throws IllegalClassFormatException {
 
-    	
+		// sometime happens, possibly some synthetic class created by Spring?
+		if (className == null)
+			return null;
+		
 		// Tomcat's classloader triggers ClassFileTransformer while a new class is created via Javaassist 
 		// which results in ClassCircularityError. so avoid any operation if compiler is in createContextClass method
     	if (compiler.inCreateContextClassMethod) {

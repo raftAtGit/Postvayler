@@ -45,6 +45,7 @@ public class MethodTransactionWithQuery<R> implements TransactionWithQuery<IsRoo
 	@Override
 	public R executeAndQuery(IsRoot root, Date date) throws Exception {
 		if (!Context.isBound()) Context.recoveryRoot = root;
+		ClockBase.setDate(date);
 		
 		try {
 			IsPersistent target = root.__postvayler_get(targetId);
@@ -61,6 +62,7 @@ public class MethodTransactionWithQuery<R> implements TransactionWithQuery<IsRoo
 			
 		} finally {
 			Context.recoveryRoot = null;
+			ClockBase.setDate(null);
 		}
 	}
 

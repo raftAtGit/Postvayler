@@ -17,4 +17,7 @@ public @interface EnablePostvayler {
 	
 	/** Name of root class in persistent object graph. */
 	String rootClass();
+	
+	/** Directory to store persist files, defaults to empty string which translated into 'persist/<rootClassName>' in current directory. */
+	String persistDir() default "";
 }

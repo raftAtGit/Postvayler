@@ -43,6 +43,7 @@ public class MethodTransaction implements Transaction<IsRoot> {
 	@Override
 	public void executeOn(IsRoot root, Date date) {
 		if (!Context.isBound()) Context.recoveryRoot = root;
+		ClockBase.setDate(date);
 		
 		try {
 			IsPersistent target = root.__postvayler_get(targetId);
@@ -61,6 +62,7 @@ public class MethodTransaction implements Transaction<IsRoot> {
 			throw new RuntimeException(e);
 		} finally {
 			Context.recoveryRoot = null;
+			ClockBase.setDate(null);
 		}
 	}
 

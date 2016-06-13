@@ -16,12 +16,14 @@ public abstract class Context {
 	public final ClassCache classCache;
 	
 	private final ThreadLocal<Boolean> transactionStatus = new ThreadLocal<Boolean>() {
+		@Override
 		protected Boolean initialValue() {
 			return false;
 		};
 	};
 	
 	private final ThreadLocal<Boolean> queryStatus = new ThreadLocal<Boolean>() {
+		@Override
 		protected Boolean initialValue() {
 			return false;
 		};
