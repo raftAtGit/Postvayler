@@ -78,9 +78,9 @@ As can been seen, if there is no *Postvayler context* around, the object bahaves
 
 Constructors of *@Persistent* classes are also instrumented to keep track of of them. They are pooled weekly so GC works as expected.
 
-There is also a proof of concept -javaagent support for [runtime instrumentation](https://docs.oracle.com/javase/8/docs/api/java/lang/instrument/package-summary.html).
+There is also a proof of concept -javaagent support for [runtime instrumentation](https://docs.oracle.com/javase/8/docs/api/java/lang/instrument/package-summary.html) and integration with [Spring](https://spring.io/)'s load time weaving mechanism. Persistence *root* can be [@Autowired](http://docs.spring.io/spring/docs/current/javadoc-api/org/springframework/beans/factory/annotation/Autowired.html) into Spring applications. See forked [pet clinic](https://github.com/raftAtGit/spring-petclinic) as a sample. 
 
-Well, that's it in a glance :) If interested, have a look at the [Bank sample](Postvayler/samples/raft/postvayler/samples/bank) and the [emulated Bank sample](Postvayler/samples/raft/postvayler/samples/_bank) where the injected bytecode is manually added to demonstrate what is going on.
+Well, that's it in a glance :) If interested, have a look at the [Bank sample](Postvayler/src/samples/java/raft/postvayler/samples/bank) and the [emulated Bank sample](Postvayler/src/samples/java/raft/postvayler/samples/_bank) where the injected bytecode is manually added to demonstrate what is going on.
 
 Cheers and happy persisting,
 
