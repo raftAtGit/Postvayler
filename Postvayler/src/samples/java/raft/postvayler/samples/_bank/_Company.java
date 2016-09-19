@@ -10,6 +10,7 @@ import raft.postvayler.impl.Context;
 import raft.postvayler.impl.IsPersistent;
 import raft.postvayler.impl.MethodCall;
 import raft.postvayler.impl.MethodTransaction;
+import raft.postvayler.impl.Utils;
 
 /**
  * A company.
@@ -21,36 +22,62 @@ public class _Company implements Serializable, IsPersistent {
 
 	private static final long serialVersionUID = 1L;
 
-	@_Injected protected Long __postvayler_Id;
+	@_Injected private Long __postvayler_Id;
 
-	private _RichPerson owner;
+	private _RichPerson owner; // = new _RichPerson("<no name>");
 	
 	public _Company() throws Exception {
-		//@_Injected
-		// a subclass constructor is running, let him do the job
-		if (getClass() != _Company.class)
-			return;
-		
-		if (__Postvayler.isBound()) { 
-			Context context = __Postvayler.getInstance();
-			
-			if (context.inTransaction()) {
-				this.__postvayler_Id = context.root.__postvayler_put(this);
-			} else {
-			
-				context.setInTransaction(true);
-				try {
-					this.__postvayler_Id = context.prevayler.execute(new ConstructorTransaction(
-							this, new ConstructorCall<IsPersistent>(_Company.class, new Class[0]), new Object[0]));
-				} finally {
-					context.setInTransaction(false);
+		// @_Injected
+		try {
+			if (__Postvayler.isBound()) {
+				Context context = __Postvayler.getInstance();
+				
+				if (context.isInTransaction()) {
+					this.__postvayler_Id = context.root.putObject(this);
+				} else {
+					//System.out.println("starting constructor transaction @" + _Company.class + " for " + Utils.identityCode(this));
+					context.setInTransaction(true);
+					context.setConstructorTransactionInitiater(this);
+					
+					try {
+						ConstructorCall<? extends IsPersistent> constructorCall = context.getConstructorCall(); 
+						if (constructorCall == null) {
+							if (getClass() != _Company.class)
+								throw new Error("subclass constructor " + getClass().getName() + " is running but there is no stored constructorCall");
+							
+							constructorCall = new ConstructorCall<_Company>(
+									_Company.class, new Class[]{}, new Object[]{});
+						}
+						this.__postvayler_Id = context.prevayler.execute(new ConstructorTransaction(this, constructorCall));
+					} finally {
+						//context.setInTransaction(false);
+						context.setConstructorCall(null);
+					}
 				}
+			} else if (Context.isInRecovery()) {
+				this.__postvayler_Id = Context.getRecoveryRoot().putObject(this);
+			} else {
+				// no Postvayler, object will not have an id
 			}
-		} else if (Context.isInRecovery()) {
-			this.__postvayler_Id = Context.getRecoveryRoot().__postvayler_put(this);
-		} else {
-			// no Postvayler, object will not have an id
+			
+			owner = new _RichPerson("<no name>");
+			
+		} catch (Exception e) {
+			if (__Postvayler.isBound()) {
+				__Postvayler.getInstance().maybeEndTransaction(this);
+			}
+			throw e;
+		} finally {
+			if (__Postvayler.isBound()) {
+				__Postvayler.getInstance().maybeEndTransaction(this, _Company.class);
+			}
 		}
+	}
+
+	@_Injected("this constructor is not actually injected. we inject some code in sub classes before invkoing super type's constructor."
+			+ "as there is no way to emulate this behaviour in Java code, we use this workaround")
+	protected _Company(Void v)throws Exception {
+		this();
 	}
 
 	@_Injected
@@ -70,7 +97,7 @@ public class _Company implements Serializable, IsPersistent {
 		}
 		
 		Context context = __Postvayler.getInstance();
-		if (context.inTransaction()) { 
+		if (context.isInTransaction()) { 
 			__postvayler__setOwner(newOwner);
 			return;
 		}

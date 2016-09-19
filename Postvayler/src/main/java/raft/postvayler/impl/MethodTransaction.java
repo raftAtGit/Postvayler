@@ -10,7 +10,7 @@ import raft.postvayler.NotPersistentException;
  * 
  * @author  hakan eryargi (r a f t)
  */
-public class MethodTransaction implements Transaction<IsRoot> {
+public class MethodTransaction implements Transaction<RootHolder> {
 
 	private static final long serialVersionUID = 1L;
 
@@ -29,6 +29,7 @@ public class MethodTransaction implements Transaction<IsRoot> {
 	@SuppressWarnings("unused")
 	private transient Object[] transientArguments;
 
+	// TODO make this similar to ConstrutorTransaction
 	public MethodTransaction(IsPersistent target, MethodCall method, Object[] arguments) {
 		this.transientTarget = target;
 		this.transientArguments = arguments;
@@ -41,29 +42,42 @@ public class MethodTransaction implements Transaction<IsRoot> {
 	}
 
 	@Override
-	public void executeOn(IsRoot root, Date date) {
+	public void executeOn(RootHolder root, Date date) {
 		if (!Context.isBound()) Context.recoveryRoot = root;
 		ClockBase.setDate(date);
 		
 		try {
-			IsPersistent target = root.__postvayler_get(targetId);
-			if (target == null) {
+			IsPersistent target = root.getObject(targetId);
+			if (target == null) 
 				throw new Error("couldnt get object from the pool, id: " + targetId); // we throw error to halt Prevayler
-				// target is garbage collected
-//				System.out.println("couldnt find target object with id " + targetId + ", possibly it's garbage collected, ignoring transaction");
-//				return;
-			}
+			
 			java.lang.reflect.Method m = method.getJavaMethod();
 			m.setAccessible(true);
 			m.invoke(target, Utils.dereferenceArguments(root, arguments));
 		} catch (RuntimeException e) {
+//			e.printStackTrace();
 			throw e;
 		} catch (Exception e) {
+//			e.printStackTrace();
 			throw new RuntimeException(e);
 		} finally {
 			Context.recoveryRoot = null;
 			ClockBase.setDate(null);
 		}
 	}
+	
+//	private void printDebug(Root root) throws Exception {
+//		System.out.println(method.getJavaMethod());
+//		System.out.println("targetId: " + targetId);
+//		System.out.println("target: " + Utils.identityCode(root.__postvayler_get(targetId)));
+//		System.out.println("args: " + Arrays.toString(arguments));
+//		System.out.println("def args: " + Arrays.toString(Utils.dereferenceArguments(root, arguments)));
+//		
+//		IsPersistent target = root.__postvayler_get(targetId);
+//		
+//		java.lang.reflect.Method m = method.getJavaMethod();
+//		m.setAccessible(true);
+//		m.invoke(target, Utils.dereferenceArguments(root, arguments));
+//	}
 
 }

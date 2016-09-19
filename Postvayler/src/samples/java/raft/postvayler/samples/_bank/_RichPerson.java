@@ -8,9 +8,7 @@ import java.util.Set;
 import raft.postvayler.Persistent;
 import raft.postvayler.Synch;
 import raft.postvayler.impl.ConstructorCall;
-import raft.postvayler.impl.ConstructorTransaction;
 import raft.postvayler.impl.Context;
-import raft.postvayler.impl.IsPersistent;
 
 /**
  * A rich person who owns companies and banks.
@@ -28,34 +26,42 @@ public class _RichPerson extends _Person {
 	/** we cannot use a regular HashSet since the iteration order is not deterministic */
 	private final Set<_Bank> banks = new LinkedHashSet<_Bank>();
 	
-	public _RichPerson(String name) throws Exception {
-		super(name);
-		
-		
-		// @_Injected
-		// a subclass constructor is running, let him do the job
-		if (getClass() != _RichPerson.class)
-			return;
-		
+	// in non-emulated real Postvayler, @Persistent fields can be created where they are defined.
+	// in emulated code, we cannot invoke our code before these fields are initialized, so we moved them to constructor
+	private _Person sister;
+	private _Person brother;
+	
+	@_Injected("this method is not actually injected but contents is injected before invkoing super type's constructor."
+			+ "as there is no way to emulate this behaviour in Java code, we use this workaround")
+	private static String __postvayler_maybeInitConstructorTransaction(String name) { 
 		if (__Postvayler.isBound()) { 
 			Context context = __Postvayler.getInstance();
 			
-			if (context.inTransaction()) {
-				this.__postvayler_Id = context.root.__postvayler_put(this);
-			} else {
-			
-				context.setInTransaction(true);
-				try {
-					this.__postvayler_Id = context.prevayler.execute(new ConstructorTransaction(
-							this, new ConstructorCall<IsPersistent>(_RichPerson.class, new Class[] {String.class}), new Object[] { name } ));
-				} finally {
-					context.setInTransaction(false);
-				}
+			if (!context.isInTransaction() && (context.getConstructorCall() == null)) {
+				context.setConstructorCall(new ConstructorCall<_RichPerson>(
+						_RichPerson.class, new Class[]{ String.class }, new Object[] {name}));
 			}
-		} else if (Context.isInRecovery()) {
-			this.__postvayler_Id = Context.getRecoveryRoot().__postvayler_put(this);
-		} else {
-			// no Postvayler, object will not have an id
+		}
+		
+		return name; 
+	}
+	
+	public _RichPerson(String name) throws Exception {
+		// @_Injected
+		super(__postvayler_maybeInitConstructorTransaction(name));
+		
+		try {
+			sister = new _Person("cat girl");
+			brother = new _Person("octopus");
+		
+			if ("Dracula".equals(name))
+				throw new IllegalArgumentException(name);	
+			
+			// @_Injected
+		} finally {
+			if (__Postvayler.isBound()) {
+				__Postvayler.getInstance().maybeEndTransaction(this, _RichPerson.class);
+			}
 		}
 	}
 
@@ -66,7 +72,7 @@ public class _RichPerson extends _Person {
 		
 		Context context = __Postvayler.getInstance();
 		
-		if (context.inQuery() || context.inTransaction()) {
+		if (context.isInQuery() || context.isInTransaction()) {
 			return __postvayler__getBanks();
 		}
 		
@@ -83,6 +89,14 @@ public class _RichPerson extends _Person {
 	@_Injected("renamed from getBanks and made private")
 	public List<_Bank> __postvayler__getBanks() {
 		return new ArrayList<_Bank>(banks);
+	}
+	
+	public _Person getSister() {
+		return sister;
+	}
+
+	public _Person getBrother() {
+		return brother;
 	}
 
 	boolean addCompany(_Company company) {

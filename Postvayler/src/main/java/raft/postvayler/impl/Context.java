@@ -11,8 +11,8 @@ public abstract class Context {
 
 	private static Context instance;
 	
-	public final Prevayler<IsRoot> prevayler;
-	public final IsRoot root;
+	public final Prevayler<RootHolder> prevayler;
+	public final RootHolder root;
 	public final ClassCache classCache;
 	
 	private final ThreadLocal<Boolean> transactionStatus = new ThreadLocal<Boolean>() {
@@ -29,9 +29,23 @@ public abstract class Context {
 		};
 	};
 	
-	static IsRoot recoveryRoot;
+	private final ThreadLocal<ConstructorCall<? extends IsPersistent>> constructorCall = new ThreadLocal<ConstructorCall<? extends IsPersistent>>() {
+		@Override
+		protected ConstructorCall<? extends IsPersistent> initialValue() {
+			return null;
+		};
+	};
+	
+	private final ThreadLocal<IsPersistent> constructorTransactionInitiater = new ThreadLocal<IsPersistent>() {
+		@Override
+		protected IsPersistent initialValue() {
+			return null;
+		};
+	};
+	
+	static RootHolder recoveryRoot;
 
-	protected Context(Prevayler<IsRoot> prevayler, IsRoot root) {
+	protected Context(Prevayler<RootHolder> prevayler, RootHolder root) {
 		synchronized (Context.class) {
 			if (instance != null)
 				throw new IllegalStateException("an instance already created");
@@ -56,11 +70,11 @@ public abstract class Context {
 		return (recoveryRoot != null);
 	}
 	
-	public static final IsRoot getRecoveryRoot() {
+	public static final RootHolder getRecoveryRoot() {
 		return recoveryRoot;
 	}
 	
-	public boolean inTransaction() {
+	public boolean isInTransaction() {
 		return transactionStatus.get();
 	}
 	
@@ -68,36 +82,44 @@ public abstract class Context {
 		transactionStatus.set(bool);
 	}
 	
-	public boolean inQuery() {
+	public final boolean isInQuery() {
 		return queryStatus.get();
 	}
 	
-	public void setInQuery(boolean bool) {
+	public final void setInQuery(boolean bool) {
 		queryStatus.set(bool);
 	}
-	
-	public static final Long put(IsPersistent persistent) {
-		if (instance != null) {
-			if (instance.inTransaction()) {
-				return instance.root.__postvayler_put(persistent);
-			} else {
-				instance.setInTransaction(true);
-				try {
-					return instance.prevayler.execute(new PutObjectTransaction(persistent));
-				} catch (RuntimeException e) {
-					throw e;
-				} catch (Exception e) {
-					throw new RuntimeException(e);
-				} finally {
-					instance.setInTransaction(false);
-				}
-			}
-		}
-		if (recoveryRoot != null)
-			return recoveryRoot.__postvayler_put(persistent);
-		
-		System.out.println("Postvayler context not bound, object will not be stored: " + Utils.identityCode(persistent));
-		return null;
+
+	public final ConstructorCall<? extends IsPersistent> getConstructorCall() {
+		return constructorCall.get();
+	}
+
+	public final void setConstructorCall(ConstructorCall<? extends IsPersistent> call) {
+		constructorCall.set(call);
+	}
+
+	public final IsPersistent getConstructorTransactionInitiater() {
+		return constructorTransactionInitiater.get();
+	}
+
+	public final void setConstructorTransactionInitiater(IsPersistent initiater) {
+		constructorTransactionInitiater.set(initiater);
 	}
 	
+	public final void maybeEndTransaction(IsPersistent caller) {
+		if (isInTransaction() && (getConstructorTransactionInitiater() == caller)) {
+
+			setInTransaction(false);
+			//System.out.println("ending transaction by: " + Utils.identityCode(caller));
+		}
+	}
+	
+	public final void maybeEndTransaction(IsPersistent caller, Class<? extends IsPersistent> clazz) {
+		if (isInTransaction() && (getConstructorTransactionInitiater() == caller)
+				&& (getConstructorTransactionInitiater().getClass() == clazz)) {
+
+			setInTransaction(false);
+			//System.out.println("ending transaction by: " + Utils.identityCode(caller));
+		}
+	}
 }

@@ -13,15 +13,10 @@ import raft.postvayler.Persistent;
 import raft.postvayler.Storage;
 import raft.postvayler.Synch;
 import raft.postvayler.impl.ConstructorCall;
-import raft.postvayler.impl.ConstructorTransaction;
 import raft.postvayler.impl.Context;
-import raft.postvayler.impl.IsPersistent;
-import raft.postvayler.impl.IsRoot;
 import raft.postvayler.impl.MethodCall;
 import raft.postvayler.impl.MethodTransaction;
 import raft.postvayler.impl.MethodTransactionWithQuery;
-import raft.postvayler.impl.Pool;
-import raft.postvayler.impl.Utils;
 
 /**
  * A bank.
@@ -29,49 +24,46 @@ import raft.postvayler.impl.Utils;
  * @author r a f t
  */
 @Persistent 
-public class _Bank extends _Company implements Serializable, IsRoot, Storage {
+public class _Bank extends _Company implements Serializable, Storage {
 
 	private static final long serialVersionUID = 1L;
 
-	@_Injected private final Pool __postvayler_pool = new Pool();
-	
 	private final Map<Integer, _Customer> customers = new TreeMap<Integer, _Customer>();
 	private final Map<Integer, _Account> accounts = new TreeMap<Integer, _Account>();
 
 	private int lastCustomerId = 1;
 	private int lastAccountId = 1;
 	
-	public _Bank() throws Exception {
-		//@_Injected
-		// a subclass constructor is running, let him do the job
-		if (getClass() != _Bank.class)
-			return;
-		
+	private _Bank sister;
+	
+	@_Injected("this method is not actually injected but contents is injected before invkoing super type's constructor."
+			+ "as there is no way to emulate this behaviour in Java code, we use this workaround")
+	private static Void __postvayler_maybeInitConstructorTransaction() { 
 		if (__Postvayler.isBound()) { 
-			// there is already a persisted _Bank instance as root.
-			// this is just an ordinary _Bank instance, so put this as other ordinary IsPersistent objects
 			Context context = __Postvayler.getInstance();
 			
-			if (context.inTransaction()) {
-				this.__postvayler_Id = context.root.__postvayler_put(this);
-			} else {
-			
-				context.setInTransaction(true);
-				try {
-					this.__postvayler_Id = context.prevayler.execute(new ConstructorTransaction(
-							this, new ConstructorCall<IsPersistent>(_Bank.class, new Class[0]), new Object[0]));
-				} finally {
-					context.setInTransaction(false);
-				}
+			if (!context.isInTransaction() && (context.getConstructorCall() == null)) {
+				context.setConstructorCall(new ConstructorCall<_Bank>(
+						_Bank.class, new Class[]{}, new Object[]{}));
 			}
-		} else if (Context.isInRecovery()) {
-			// we are in recovery, there is already a persisted _Bank instance as root. 
-			// this is just an ordinary _Bank instance, so put this as other ordinary IsPersistent objects
-			assert (Context.getRecoveryRoot() != this);
-			this.__postvayler_Id = Context.getRecoveryRoot().__postvayler_put(this);
-		} else {
-			// no Postvayler, object will not have an id
 		}
+		
+		return null; 
+	}
+	
+	public _Bank() throws Exception {
+		// @Injected
+		super(__postvayler_maybeInitConstructorTransaction());
+		
+		if (__Postvayler.isBound()) {
+			__Postvayler.getInstance().maybeEndTransaction(this, _Bank.class);
+		}
+	}
+
+	@_Injected("this constructor is not actually injected. we inject some code in sub classes before invkoing super type's constructor."
+			+ "as there is no way to emulate this behaviour in Java code, we use this workaround")
+	protected _Bank(Void v) throws Exception {
+		this();
 	}
 
 	@Persist
@@ -80,7 +72,7 @@ public class _Bank extends _Company implements Serializable, IsRoot, Storage {
 			return __postvayler__createCustomer(name);
 		
 		Context context = __Postvayler.getInstance();
-		if (context.inTransaction()) 
+		if (context.isInTransaction()) 
 			return __postvayler__createCustomer(name);
 		
 		context.setInTransaction(true);
@@ -108,7 +100,7 @@ public class _Bank extends _Company implements Serializable, IsRoot, Storage {
 			return __postvayler__addCustomer(customer);
 		
 		Context context = __Postvayler.getInstance();
-		if (context.inTransaction()) 
+		if (context.isInTransaction()) 
 			return __postvayler__addCustomer(customer);
 		
 		context.setInTransaction(true);
@@ -135,7 +127,7 @@ public class _Bank extends _Company implements Serializable, IsRoot, Storage {
 		}
 		
 		Context context = __Postvayler.getInstance();
-		if (context.inTransaction()) { 
+		if (context.isInTransaction()) { 
 			__postvayler__addCustomers(customers);
 			return;
 		}
@@ -164,7 +156,7 @@ public class _Bank extends _Company implements Serializable, IsRoot, Storage {
 		}
 		
 		Context context = __Postvayler.getInstance();
-		if (context.inTransaction()) { 
+		if (context.isInTransaction()) { 
 			__postvayler__removeCustomer(customer);
 			return;
 		}
@@ -190,7 +182,7 @@ public class _Bank extends _Company implements Serializable, IsRoot, Storage {
 		}
 		
 		Context context = __Postvayler.getInstance();
-		if (context.inTransaction()) { 
+		if (context.isInTransaction()) { 
 			return __postvayler__createAccount();
 		}
 		
@@ -218,7 +210,7 @@ public class _Bank extends _Company implements Serializable, IsRoot, Storage {
 		}
 		
 		Context context = __Postvayler.getInstance();
-		if (context.inTransaction()) { 
+		if (context.isInTransaction()) { 
 			__postvayler__transferAmount(from, to, amount);
 			return;
 		}
@@ -258,7 +250,7 @@ public class _Bank extends _Company implements Serializable, IsRoot, Storage {
 		
 		Context context = __Postvayler.getInstance();
 		
-		if (context.inQuery() || context.inTransaction()) {
+		if (context.isInQuery() || context.isInTransaction()) {
 			return __postvayler__getCustomers();
 		}
 		
@@ -284,7 +276,7 @@ public class _Bank extends _Company implements Serializable, IsRoot, Storage {
 		
 		Context context = __Postvayler.getInstance();
 		
-		if (context.inQuery() || context.inTransaction()) {
+		if (context.isInQuery() || context.isInTransaction()) {
 			return __postvayler__getAccounts();
 		}
 		
@@ -307,29 +299,29 @@ public class _Bank extends _Company implements Serializable, IsRoot, Storage {
 		return accounts.get(id);
 	}
 
-	@_Injected
-	public final IsPersistent __postvayler_get(Long id) {
-		return __postvayler_pool.get(id);
-	}
-
-	@_Injected
-	public final Long __postvayler_put(IsPersistent persistent) {
-		if (persistent.__postvayler_getId() != null) {
-			// we throw error to halt Prevayler
-			throw new Error("object already has an id\n" + Utils.identityCode(persistent));
-		}
-		
-		Long id = __postvayler_pool.put(persistent); 
-		if (persistent == this) {
-			 this.__postvayler_Id = id;
-		}
-		return id; 
-	}
-
-	@_Injected
-	public final void __postvayler_onRecoveryCompleted() {
-		__postvayler_pool.switchToWeakValues();
-	}
+//	@_Injected
+//	public final IsPersistent __postvayler_get(Long id) {
+//		return __postvayler_pool.get(id);
+//	}
+//
+//	@_Injected
+//	public final Long __postvayler_put(IsPersistent persistent) {
+//		if (persistent.__postvayler_getId() != null) {
+//			// we throw error to halt Prevayler
+//			throw new Error("object already has an id\n" + Utils.identityCode(persistent));
+//		}
+//		
+//		Long id = __postvayler_pool.put(persistent); 
+//		if (persistent == this) {
+//			 this.__postvayler_Id = id;
+//		}
+//		return id; 
+//	}
+//
+//	@_Injected
+//	public final void __postvayler_onRecoveryCompleted() {
+//		__postvayler_pool.switchToWeakValues();
+//	}
 	
 	@_Injected
 	public final File takeSnapshot() throws Exception {
@@ -339,5 +331,34 @@ public class _Bank extends _Company implements Serializable, IsRoot, Storage {
 		return __Postvayler.getInstance().prevayler.takeSnapshot();
 	}
 
-	 
+	public _Bank getSister() {
+		return sister;
+	}
+
+	public void setSister(_Bank sister) {
+		if (!__Postvayler.isBound()) { 
+			__postvayler__setSister(sister);
+			return;
+		}
+		
+		Context context = __Postvayler.getInstance();
+		if (context.isInTransaction()) { 
+			__postvayler__setSister(sister);
+			return;
+		}
+		
+		context.setInTransaction(true);
+		try {
+			context.prevayler.execute(new MethodTransaction(
+					this, new MethodCall("__postvayler__setSister", _Bank.class, new Class[] {_Bank.class}), new Object[] { sister } ));
+		} finally {
+			context.setInTransaction(false);
+		}
+	}
+
+	@Persist
+	private void __postvayler__setSister(_Bank sister) {
+		this.sister = sister;
+	}
+	
 }

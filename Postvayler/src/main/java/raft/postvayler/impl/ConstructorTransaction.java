@@ -1,6 +1,5 @@
 package raft.postvayler.impl;
 
-import java.lang.reflect.Constructor;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -17,7 +16,7 @@ import org.prevayler.TransactionWithQuery;
  * 
  * @author r a f t
  */
-public class ConstructorTransaction implements TransactionWithQuery<IsRoot, Long> {
+public class ConstructorTransaction implements TransactionWithQuery<RootHolder, Long> {
 
 	private static final long serialVersionUID = 1L;
 
@@ -33,17 +32,15 @@ public class ConstructorTransaction implements TransactionWithQuery<IsRoot, Long
 	} 
 	
 	private final Long tempTargetId;
-	private final ConstructorCall<IsPersistent> constructor;
-	private final Object[] arguments;
+	private final ConstructorCall<? extends IsPersistent> constructor;
 
-	public ConstructorTransaction(IsPersistent target, ConstructorCall<IsPersistent> constructor, Object[] arguments) {
+	public ConstructorTransaction(IsPersistent target, ConstructorCall<? extends IsPersistent> constructor) {
 		this.tempTargetId = putTemp(target);
 		this.constructor = constructor;
-		this.arguments = Utils.referenceArguments(arguments);
 	}
 
 	@Override
-	public Long executeAndQuery(IsRoot root, Date date) throws Exception {
+	public Long executeAndQuery(RootHolder root, Date date) throws Exception {
 		ClockBase.setDate(date);
 		try {
 			if (Context.isBound()) {
@@ -51,21 +48,23 @@ public class ConstructorTransaction implements TransactionWithQuery<IsRoot, Long
 				IsPersistent target = tempTargets.remove(tempTargetId);
 				if (target == null)
 					throw new Error("couldnt get object from temp pool, id: " + tempTargetId); // we throw error to halt Prevayler
-				return root.__postvayler_put(target);
+
+				return root.putObject(target);
 				
 			} else {
 				// recovery
 				Context.recoveryRoot = root;
 				try {
-					Constructor<IsPersistent> cons = constructor.getJavaConstructor();
-					cons.setAccessible(true);
-					IsPersistent target = cons.newInstance(arguments);
+					IsPersistent target = constructor.newInstance(root);
 					assert (target.__postvayler_getId() != null);
 					return null; // return type is not actually used in this case
 				} finally {
 					Context.recoveryRoot = null;
 				}
 			}
+//		} catch (Exception e) {
+//			e.printStackTrace();
+//			throw e;
 		} finally {
 			ClockBase.setDate(null);
 		}

@@ -12,12 +12,12 @@
 		}
 		
 		Context context = {0}.getInstance();
-		if (context.inTransaction()) '{' 
+		if (context.isInTransaction()) '{' 
 			__postvayler__{1} ( $$ );
 			return;
 		}
 		
-		if (context.inQuery())
+		if (context.isInQuery())
 			throw new PersistInSynchException();
 		
 		context.setInTransaction(true);

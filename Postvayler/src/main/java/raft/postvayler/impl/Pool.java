@@ -13,7 +13,7 @@ public class Pool implements Serializable {
 	 * {@link WeakValueHashMap}. This is necessary because during recovery there are no external references
 	 * to created objects and nothing prevents them from garbage collected from a WeakMap.
 	 * 
-	 *  @see IsRoot#__postvayler_onRecoveryCompleted()
+	 *  @see RootHolder#onRecoveryCompleted()
 	 *  @see #switchToWeakValues() */
 	private Map<Long, IsPersistent> objects = new HashMap<Long, IsPersistent>();
 
@@ -25,9 +25,14 @@ public class Pool implements Serializable {
 	public final synchronized Long put(IsPersistent persistent) {
 		Long id = lastId++;
 		objects.put(id, persistent);
-//		System.out.println("put " + id + ":" + Utils.identityCode(persistent) + ", size: " + objects.size());
+		//System.out.println("put " + id + ":" + Utils.identityCode(persistent) + ", size: " + objects.size());
 		return id;
 	}
+	
+	public final synchronized void skipId() {
+		lastId++;
+	}
+	
 	
 	public final synchronized IsPersistent get(Long id) {
 		return objects.get(id);

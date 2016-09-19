@@ -7,8 +7,9 @@ import org.prevayler.Prevayler;
 import org.prevayler.PrevaylerFactory;
 
 import raft.postvayler.impl.GCPreventingPrevayler;
+import raft.postvayler.impl.InitRootTransaction;
 import raft.postvayler.impl.IsPersistent;
-import raft.postvayler.impl.IsRoot;
+import raft.postvayler.impl.RootHolder;
 
 /**
  * <p>Entry point to create a @Persistent object. After @Persistent classes is instrumented 
@@ -37,17 +38,13 @@ import raft.postvayler.impl.IsRoot;
 public class Postvayler<T> {
 
 	private static Postvayler<?> instance;
-	private T root;
-	private T empty;
 	
-	private PrevaylerFactory<T> factory;
+	private final Class<T> rootClass;
 	
-	public Postvayler(Class<T> clazz) throws Exception {
-		this(clazz.newInstance());
-	}
+	private PrevaylerFactory<RootHolder> factory;
 	
-	public Postvayler(T t) throws Exception {
-		this.empty = t;
+	public Postvayler(Class<T> rootClass) throws Exception {
+		this.rootClass = rootClass;
 	}
 	
 	@SuppressWarnings("unchecked")
@@ -63,10 +60,11 @@ public class Postvayler<T> {
 			}
 
 			// TODO check root class is actually instrumented
-			if (!(empty instanceof IsRoot))
-				throw new NotCompiledException(empty.getClass().getName());
 			
-			String contextClassName = empty.getClass().getPackage().getName() + ".__Postvayler";
+			if (!IsPersistent.class.isAssignableFrom(rootClass))
+				throw new NotCompiledException(rootClass.getName());
+			
+			String contextClassName = rootClass.getPackage().getName() + ".__Postvayler";
 			Class<?> contextClass;
 			Field contextRootField;
 			Constructor<?> contextRootConstructor;
@@ -74,56 +72,57 @@ public class Postvayler<T> {
 			try {
 				contextClass = Class.forName(contextClassName);
 				contextRootField = contextClass.getField("rootClass");
-				contextRootConstructor = contextClass.getConstructor(Prevayler.class, empty.getClass());
+				contextRootConstructor = contextClass.getConstructor(Prevayler.class, RootHolder.class);
 				
-				if (!contextRootField.get(null).equals(empty.getClass())) 
-					throw new NotCompiledException("cannot create Postvayler for " + empty.getClass().getName() 
+				if (!contextRootField.get(null).equals(rootClass)) 
+					throw new NotCompiledException("cannot create Postvayler for " + rootClass.getName() 
 							+ ", root class is " + contextRootField.getType().getName());
 				
-				String classSuffix = getClassNameForJavaIdentifier(empty.getClass());
-				String instrumentationRoot = (String) empty.getClass().getField("__postvayler_root_" + classSuffix).get(null);
-				if (!empty.getClass().getName().equals(instrumentationRoot))
-					throw new NotCompiledException("given root class " + empty.getClass().getName() + " is instrumented for root class " + instrumentationRoot); 
+				String classSuffix = getClassNameForJavaIdentifier(rootClass);
+				String instrumentationRoot = (String) rootClass.getField("__postvayler_root_" + classSuffix).get(null);
+				if (!rootClass.getName().equals(instrumentationRoot))
+					throw new NotCompiledException("given root class " + rootClass.getName() + " is instrumented for root class " + instrumentationRoot); 
 				
 			} catch (ClassNotFoundException e) {
-				throw new NotCompiledException(empty.getClass().getName(), e);
+				throw new NotCompiledException(rootClass.getName(), e);
 			} catch (NoSuchMethodException e) {
-				throw new NotCompiledException(empty.getClass().getName(), e);
+				throw new NotCompiledException(rootClass.getName(), e);
 			} catch (NoSuchFieldException e) {
-				throw new NotCompiledException(empty.getClass().getName(), e);
+				throw new NotCompiledException(rootClass.getName(), e);
 			}
-			
-			((IsRoot)empty).__postvayler_put((IsPersistent)empty);
 			
 			if (factory == null) {
-				factory = new PrevaylerFactory<T>();
-				factory.configurePrevalenceDirectory("persist/" + empty.getClass().getName());
-				factory.configurePrevalentSystem(empty);
+				factory = new PrevaylerFactory<RootHolder>();
+				factory.configurePrevalenceDirectory("persist/" + rootClass.getName());
+				//factory.configurePrevalentSystem(new RootHolder());
 			}
-			Prevayler<T> prevayler = factory.create();
-			root = prevayler.prevalentSystem();
-			((IsRoot) root).__postvayler_onRecoveryCompleted();
 			
-			contextRootConstructor.newInstance(new GCPreventingPrevayler((Prevayler<IsRoot>)prevayler), root);
+			factory.configurePrevalentSystem(new RootHolder());
+			
+			Prevayler<RootHolder> prevayler = factory.create();
+			RootHolder rootHolder = prevayler.prevalentSystem();
+			rootHolder.onRecoveryCompleted();
+			
+			contextRootConstructor.newInstance(new GCPreventingPrevayler(prevayler), rootHolder);
+			
+			if (!rootHolder.isInitialized()) {
+				prevayler.execute(new InitRootTransaction((Class)rootClass));
+			}
 			
 			instance = this;
 			
-			return root;
+			return (T) rootHolder.getRoot();
 		}
 	}
 	
 	
-	public Postvayler<T> setPrevaylerFactory(PrevaylerFactory<T> factory) {
+	public Postvayler<T> setPrevaylerFactory(PrevaylerFactory<RootHolder> factory) {
 		this.factory = factory;
 		return this;
 	}
 
 	public static <T> T create(Class<T> clazz) throws Exception {
 		return new Postvayler<T>(clazz).create();
-	}
-	
-	public static <T> T create(T t) throws Exception {
-		return new Postvayler<T>(t).create();
 	}
 	
 	private static String getClassNameForJavaIdentifier(Class<?> clazz) {

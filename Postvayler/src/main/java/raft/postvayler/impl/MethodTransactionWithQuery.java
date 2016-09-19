@@ -11,7 +11,7 @@ import raft.postvayler.NotPersistentException;
  * 
  * @author  hakan eryargi (r a f t)
  */
-public class MethodTransactionWithQuery<R> implements TransactionWithQuery<IsRoot, R> {
+public class MethodTransactionWithQuery<R> implements TransactionWithQuery<RootHolder, R> {
 
 	private static final long serialVersionUID = 1L;
 
@@ -43,12 +43,12 @@ public class MethodTransactionWithQuery<R> implements TransactionWithQuery<IsRoo
 
 	@SuppressWarnings("unchecked")
 	@Override
-	public R executeAndQuery(IsRoot root, Date date) throws Exception {
+	public R executeAndQuery(RootHolder root, Date date) throws Exception {
 		if (!Context.isBound()) Context.recoveryRoot = root;
 		ClockBase.setDate(date);
 		
 		try {
-			IsPersistent target = root.__postvayler_get(targetId);
+			IsPersistent target = root.getObject(targetId);
 			
 			if (target == null) {
 				throw new Error("couldnt get object from the pool, id: " + targetId); // we throw error to halt Prevayler
@@ -58,7 +58,7 @@ public class MethodTransactionWithQuery<R> implements TransactionWithQuery<IsRoo
 			}
 			Method m = method.getJavaMethod();
 			m.setAccessible(true);
-			return (R) m.invoke(target, Utils.dereferenceArguments((IsRoot)root, arguments));
+			return (R) m.invoke(target, Utils.dereferenceArguments(root, arguments));
 			
 		} finally {
 			Context.recoveryRoot = null;

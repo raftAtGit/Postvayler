@@ -11,7 +11,8 @@ import org.prevayler.PrevaylerFactory;
 import raft.postvayler.Postvayler;
 import raft.postvayler.impl.Context;
 import raft.postvayler.impl.GCPreventingPrevayler;
-import raft.postvayler.impl.IsRoot;
+import raft.postvayler.impl.InitRootTransaction;
+import raft.postvayler.impl.RootHolder;
 
 /**
  * Entry point of sample.
@@ -105,6 +106,8 @@ public class _Main {
 		if ((owner == null) ^ (pojoOwner == null))
 			throw new Exception("owners differ");
 		
+		checkEqual(bank.getSister().getOwner(), pojoBank.getSister().getOwner());
+		
 		if (owner != null) {
 			checkEqual(owner, pojoOwner);
 			
@@ -158,6 +161,13 @@ public class _Main {
 			checkEqual(account, pojoAccount);
 		}
 	}
+	private static void checkEqual(_RichPerson richPerson, _RichPerson pojoRichPerson) throws Exception {
+		checkEqual((_Person)richPerson, (_Person)pojoRichPerson);
+		
+		checkEqual(richPerson.getSister(), pojoRichPerson.getSister());
+		checkEqual(richPerson.getBrother(), pojoRichPerson.getBrother());
+	}
+	
 	private static void checkEqual(_Customer customer, _Customer pojoCustomer) throws Exception {
 		checkEqual((_Person)customer, (_Person)pojoCustomer);
 		
@@ -170,7 +180,7 @@ public class _Main {
 	
 	private static void checkEqual(_Person person, _Person pojoPerson) throws Exception {
 		if (!equals(person.getName(), pojoPerson.getName()))
-			throw new Exception("test failed");
+			throw new Exception("test failed " + person.getName() + " != " + pojoPerson.getName());
 
 		if (!equals(person.getPhone(), pojoPerson.getPhone()))
 			throw new Exception("test failed");
@@ -205,19 +215,26 @@ public class _Main {
 
 	/** emulates what {@link Postvayler#create()} does*/
 	private static _Bank createPersistentBank() throws Exception {
-		PrevaylerFactory<IsRoot> factory = new PrevaylerFactory<IsRoot>();
+		PrevaylerFactory<RootHolder> factory = new PrevaylerFactory<RootHolder>();
 		factory.configurePrevalenceDirectory("persist/raft.postvayler.samples._bank._Bank");
-		_Bank empty = new _Bank();
-		empty.__postvayler_put(empty);
 		
-		factory.configurePrevalentSystem(empty);
-	
-		Prevayler<IsRoot> prevayler = new GCPreventingPrevayler(factory.create());
-		IsRoot root = prevayler.prevalentSystem();
-		root.__postvayler_onRecoveryCompleted();
+		//RootHolder root = new RootHolder();
+		factory.configurePrevalentSystem(new RootHolder());
+
+//		_Bank empty = new _Bank();
+//		root.__postvayler_put(empty);
 		
-		new __Postvayler(prevayler, (_Bank)root);
-		return (_Bank) root;
+		Prevayler<RootHolder> prevayler = new GCPreventingPrevayler(factory.create());
+		RootHolder root = prevayler.prevalentSystem();
+		root.onRecoveryCompleted();
+		
+		new __Postvayler(prevayler, root);
+		
+		if (!root.isInitialized()) {
+			prevayler.execute(new InitRootTransaction(_Bank.class));
+		}
+		
+		return (_Bank) root.getRoot();
 	}
 	
 	private static void resetPrevayler() throws Exception {
@@ -232,26 +249,35 @@ public class _Main {
 	private static void populateBank(_Bank bank, Random random) throws Exception {
 		
 		// add some initial customers and accounts and also owner
-		bank.setOwner(new _RichPerson("kingpin"));
+		bank.getOwner().setName("richie rich");
+		
+		if (bank.getSister() == null) {
+			bank.setSister(new _Bank());
+			bank.getSister().getOwner().setName("even more rich");
+		}
 		
 		for (int i = 0; i < 50 + random.nextInt(50); i++) {
 			_Customer customer = bank.createCustomer("initial:" + random.nextInt());
 			customer.addAccount(bank.createAccount());
+			System.out.print('.');
 		}
 		
 		
-		int count = 1000 + random.nextInt(1000);
+		int count = 100 + random.nextInt(100);
 		
 		for (int action = 0; action < count; action++) {
 			
 			int next = random.nextInt(BANK_ACTIONS);
 			doSomethingRandomWithBank(bank, next, random);
 		}
+		System.out.println();
 	}
 	
 	static final int BANK_ACTIONS = 19;
 
 	private static void doSomethingRandomWithBank(_Bank bank, int action, Random random) throws Exception {
+		System.out.print('.');
+		
 		switch (action) {
 			 case 0: {
 				 // create a customer via bank
@@ -322,10 +348,29 @@ public class _Main {
 				 }
 				 break;
 			 	}
+			 // create a RichPerson which will throw exception at Person constructor
+			 case 9: {
+				 try {
+					 new _RichPerson("HellBoy");
+				 } catch (IllegalArgumentException e) {}
+				 break;
+			 }
+			 // create a RichPerson which will throw exception at RichPerson constructor
+			 case 10: {
+				 try {
+					 new _RichPerson("Dracula");
+				 } catch (IllegalArgumentException e) {}
+				 break;
+			 }
+			 case 11: {
+				 _RichPerson rich = bank.getOwner(); 
+				 if (rich != null) {
+					 rich.getSister().setName("sister:" + random.nextInt());
+					 rich.getBrother().setName("brother:" + random.nextInt());
+				 }
+				 break;
+			 }
 			 // transfer some money
-			 case 9: 
-			 case 10: 
-			 case 11: 
 			 case 12: {
 				 List<_Account> accounts = bank.getAccounts();
 				 if (accounts.size() < 2)

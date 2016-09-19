@@ -21,8 +21,11 @@ public class Person implements Serializable {
 	}	
 	
 	public Person(String name) {
-		this(); // since there is a call to this() constructor, code will not be injected here 
+		this(); 
 		this.name = name;
+		
+		if ("HellBoy".equals(name))
+			throw new IllegalArgumentException(name);
 	}
 
 	public String getPhone() {
@@ -37,7 +40,9 @@ public class Person implements Serializable {
 	public String getName() {
 		return name;
 	}
-	
-	
-	
+
+	@Persist
+	public void setName(String name) {
+		this.name = name;
+	}
 }

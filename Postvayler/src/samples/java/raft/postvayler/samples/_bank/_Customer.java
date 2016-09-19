@@ -9,9 +9,7 @@ import raft.postvayler.Persist;
 import raft.postvayler.Persistent;
 import raft.postvayler.Synch;
 import raft.postvayler.impl.ConstructorCall;
-import raft.postvayler.impl.ConstructorTransaction;
 import raft.postvayler.impl.Context;
-import raft.postvayler.impl.IsPersistent;
 import raft.postvayler.impl.MethodCall;
 import raft.postvayler.impl.MethodTransaction;
 
@@ -28,36 +26,31 @@ public class _Customer extends _Person {
 
 	private final Map<Integer, _Account> accounts = new TreeMap<Integer, _Account>();
 
-	public _Customer(String name) throws Exception {
-		super(name);
-		
-		// @_Injected
-		// a subclass constructor is running, let him do the job
-		if (getClass() != _Customer.class)
-			return;
-		
+	@_Injected("this method is not actually injected but contents is injected before invkoing super type's constructor."
+			+ "as there is no way to emulate this behaviour in Java code, we use this workaround")
+	private static String __postvayler_maybeInitConstructorTransaction(String name) { 
 		if (__Postvayler.isBound()) { 
 			Context context = __Postvayler.getInstance();
 			
-			if (context.inTransaction()) {
-				this.__postvayler_Id = context.root.__postvayler_put(this);
-			} else {
-			
-				context.setInTransaction(true);
-				try {
-					this.__postvayler_Id = context.prevayler.execute(new ConstructorTransaction(
-							this, new ConstructorCall<IsPersistent>(_Customer.class, new Class[] {String.class}), new Object[] { name } ));
-				} finally {
-					context.setInTransaction(false);
-				}
+			if (!context.isInTransaction() && (context.getConstructorCall() == null)) {
+				context.setConstructorCall(new ConstructorCall<_Customer>(
+						_Customer.class, new Class[]{ String.class }, new Object[] {name}));
 			}
-		} else if (Context.isInRecovery()) {
-			this.__postvayler_Id = Context.getRecoveryRoot().__postvayler_put(this);
-		} else {
-			// no Postvayler, object will not have an id
 		}
+		
+		return name; 
 	}
-
+	
+	public _Customer(String name) throws Exception {
+		// @_Injected
+		super(__postvayler_maybeInitConstructorTransaction(name));
+		
+		if (__Postvayler.isBound()) {
+			__Postvayler.getInstance().maybeEndTransaction(this, _Customer.class);
+		}
+		
+	}
+	
 	@Persist
 	public void addAccount(_Account account) {
 		if (!__Postvayler.isBound()) { 
@@ -66,7 +59,7 @@ public class _Customer extends _Person {
 		}
 		
 		Context context = __Postvayler.getInstance();
-		if (context.inTransaction()) { 
+		if (context.isInTransaction()) { 
 			__postvayler__addAccount(account);
 			return;
 		}
@@ -95,7 +88,7 @@ public class _Customer extends _Person {
 		
 		Context context = __Postvayler.getInstance();
 		
-		if (context.inQuery() || context.inTransaction()) {
+		if (context.isInQuery() || context.isInTransaction()) {
 			return __postvayler__getAccounts();
 		}
 		

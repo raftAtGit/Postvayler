@@ -15,7 +15,7 @@ public class Company implements Serializable {
 
 	private static final long serialVersionUID = 1L;
 
-	private RichPerson owner;
+	private RichPerson owner = new RichPerson("<no name>");
 	
 	public Company() {
 	}

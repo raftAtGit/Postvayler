@@ -24,13 +24,27 @@ public class RichPerson extends Person {
 	/** we cannot use a regular HashSet since the iteration order is not deterministic */
 	private final Set<Bank> banks = new LinkedHashSet<Bank>();
 	
+	private Person sister = new Person("cat girl");
+	private Person brother = new Person("octopus");
+	
 	public RichPerson(String name) {
 		super(name);
+		
+		if ("Dracula".equals(name))
+			throw new IllegalArgumentException(name);	
 	}
 
 	@Synch
 	public List<Bank> getBanks() {
 		return new ArrayList<Bank>(banks);
+	}
+
+	public Person getSister() {
+		return sister;
+	}
+
+	public Person getBrother() {
+		return brother;
 	}
 
 	boolean addCompany(Company company) {

@@ -50,7 +50,7 @@ import raft.postvayler.Storage;
 import raft.postvayler.Synch;
 import raft.postvayler.impl.Context;
 import raft.postvayler.impl.IsPersistent;
-import raft.postvayler.impl.IsRoot;
+import raft.postvayler.impl.RootHolder;
 
 /**
  * Postvayler compiler. Works on <strong>javac</strong> compiled bytecode.
@@ -364,33 +364,32 @@ public class Compiler {
 		}
 	}
 	
-	/** inject {@link IsRoot} interface and related fields to implement it */
+	/** inject {@link RootHolder} interface and related fields to implement it */
 	private void injectIsRoot(Node node) throws Exception {
 		CtClass clazz = node.clazz;
 		
-		clazz.addInterface(classPool.get(IsRoot.class.getName()));
-		System.out.println("added IsRoot interface to " + clazz.getName());
-			
-		clazz.addInterface(classPool.get(Storage.class.getName()));
-		System.out.println("added Storage interface to " + clazz.getName());
+//		clazz.addInterface(classPool.get(RootHolder.class.getName()));
+//		System.out.println("added IsRoot interface to " + clazz.getName());
+//			
+//		clazz.addInterface(classPool.get(Storage.class.getName()));
+//		System.out.println("added Storage interface to " + clazz.getName());
+//		
+//		clazz.addField(CtField.make("private final Pool __postvayler_pool = new Pool();", clazz));
+//		System.out.println("added Pool __postvayler_pool field to " + clazz.getName());
+//
+//		// implement the IsRoot interface
+//		clazz.addMethod(CtNewMethod.make("public final IsPersistent __postvayler_get(Long id) { return __postvayler_pool.get(id);}", clazz));
+//		System.out.println("added IsPersistent __postvayler_get(Long id) method to " + clazz.getName());
+//		
+//		String source = createSource("IsRoot.put.java.txt");
+//		clazz.addMethod(CtNewMethod.make(source, clazz));
+//		System.out.println("added void __postvayler_put(IsPersistent persistent) method to " + clazz.getName());
+//		
+//		clazz.addMethod(CtNewMethod.make("public final void __postvayler_onRecoveryCompleted() { __postvayler_pool.switchToWeakValues();}", clazz));
+//		System.out.println("added void __postvayler_onRecoveryCompleted() method to " + clazz.getName());
 		
-		clazz.addField(CtField.make("private final Pool __postvayler_pool = new Pool();", clazz));
-		System.out.println("added Pool __postvayler_pool field to " + clazz.getName());
-
-		// implement the IsRoot interface
-		clazz.addMethod(CtNewMethod.make("public final IsPersistent __postvayler_get(Long id) { return __postvayler_pool.get(id);}", clazz));
-		System.out.println("added IsPersistent __postvayler_get(Long id) method to " + clazz.getName());
-		
-		String source = createSource("IsRoot.put.java.txt");
-		if (DEBUG) System.out.println(source);
-		clazz.addMethod(CtNewMethod.make(source, clazz));
-		System.out.println("added void __postvayler_put(IsPersistent persistent) method to " + clazz.getName());
-		
-		clazz.addMethod(CtNewMethod.make("public final void __postvayler_onRecoveryCompleted() { __postvayler_pool.switchToWeakValues();}", clazz));
-		System.out.println("added void __postvayler_onRecoveryCompleted() method to " + clazz.getName());
-		
-		source = createSource("IsRoot.takeSnapshot.java.txt", contextClass.getName());
-		if (DEBUG) System.out.println(source);
+		// TODO better move this functionality to Postvayler class? 
+		String source = createSource("IsRoot.takeSnapshot.java.txt", contextClass.getName());
 		clazz.addMethod(CtNewMethod.make(source, clazz));
 		System.out.println("added public File takeSnapshot() method to " + clazz.getName());
 	}
@@ -405,14 +404,13 @@ public class Compiler {
 		clazz.addInterface(classPool.get(IsPersistent.class.getName()));
 		System.out.println("added IsPersistent interface to " + clazz.getName());
 		
-		// TODO optimization: we can make __postvayler_Id private final if there are no subclasses of it
-		clazz.addField(makeSynthetic(CtField.make("protected Long __postvayler_Id;", clazz)));
+		clazz.addField(makeSynthetic(CtField.make("private final Long __postvayler_Id;", clazz)));
 		System.out.println("added Long __postvaylerId field to " + clazz.getName());
 		
 		// implement the IsPersistent interface
 		clazz.addMethod(CtNewMethod.make("public final Long __postvayler_getId() { return __postvayler_Id;}", clazz));
 		System.out.println("added Long __postvayler_getId() method to " + clazz.getName());
-		
+
 		String validateSource = createSource("IsPersistent.init.validateClass.java.txt", contextClass.getName());
 		
 		// add code to validate runtime type
@@ -438,16 +436,27 @@ public class Compiler {
 		if (node.isRoot) {
 			injectIsRoot(node);
 		}
+
+		for (CtConstructor constructor : clazz.getDeclaredConstructors()) {
+			constructor.insertBefore(createSource("IsPersistent.init.initTransaction.java.txt", contextClass.getName(), clazz.getName()));
+			System.out.println("added initTransaction to " + constructor.getLongName());
+			
+			constructor.addCatch(createSource("IsPersistent.init.catch.java.txt", contextClass.getName()), classPool.get(Throwable.class.getName()), "$e");
+			System.out.println("added catch to " + constructor.getLongName());
+			
+			constructor.insertAfter(createSource("IsPersistent.init.finally.java.txt", contextClass.getName(), clazz.getName()), true); // as finally
+			System.out.println("added finally to " + constructor.getLongName());
+		}
 		
-		if (!Modifier.isAbstract(clazz.getModifiers())) {
+		if (node.isTopLevel()) {
 			String source = createSource("IsPersistent.init.putToPool.java.txt", contextClass.getName(), clazz.getName());
-			if (DEBUG) System.out.println(source);
 			
 			for (CtConstructor constructor : clazz.getDeclaredConstructors()) {
 				// optimization: there is a call to this(constructor), omit put to pool code 
 				if (!constructor.callsSuper())
 					continue;
-				constructor.insertAfter(source);
+				
+				constructor.insertBeforeBody(source);
 				System.out.println("added add to pool call to " + constructor.getLongName());
 			}
 		}
@@ -543,7 +552,7 @@ public class Compiler {
 		for (Iterator<CtClass> i = interfaces.iterator(); i.hasNext();) {
 			CtClass inttf = i.next();
 			if (inttf.getName().equals(IsPersistent.class.getName()) 
-					|| inttf.getName().equals(IsRoot.class.getName())
+					|| inttf.getName().equals(RootHolder.class.getName())
 					|| inttf.getName().equals(Storage.class.getName())) {
 				i.remove();
 			}
@@ -622,7 +631,6 @@ public class Compiler {
 			}
 		}
 				
-		if (DEBUG) System.out.println(source);
 		method.setBody(source);
 		method.getMethodInfo().rebuildStackMap(classPool);
 		
@@ -692,7 +700,6 @@ public class Compiler {
 				? createSource("IsPersistent.synch.java.txt", contextClass.getName(), method.getName()) 
 				: createSource("IsPersistent.synchVoid.java.txt", contextClass.getName(), method.getName());
 		
-		if (DEBUG) System.out.println(source);
 		method.setBody(source);
 		method.getMethodInfo().rebuildStackMap(classPool);
 		
@@ -828,7 +835,9 @@ public class Compiler {
 	}
 
 	private String createSource(String fileName, Object... arguments) throws Exception {
-		return MessageFormat.format(readFile(fileName), arguments);
+		String source = MessageFormat.format(readFile(fileName), arguments);
+		if (DEBUG) System.out.println(source);
+		return source;
 	}
 	
 	private final Map<String, String> fileCache = new HashMap<String, String>();

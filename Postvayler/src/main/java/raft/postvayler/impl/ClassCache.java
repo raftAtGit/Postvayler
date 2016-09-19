@@ -28,10 +28,11 @@ public class ClassCache {
 		while (true) {
 			try {
 				String classSuffix = getClassNameForJavaIdentifier(clazz);
+				// TODO possibly remove validation for root class, root has no special meaning any more 
 				String instrumentationRoot = (String) clazz.getField("__postvayler_root_" + classSuffix).get(null);
-				if (!rootClassName.equals(instrumentationRoot))
-					throw new NotCompiledException("class " + clazz.getName() + " is not instrumented for root class " + 
-							rootClassName + " but for class " + instrumentationRoot); 
+//				if (!rootClassName.equals(instrumentationRoot))
+//					throw new NotCompiledException("class " + clazz.getName() + " is not instrumented for root class " + 
+//							rootClassName + " but for class " + instrumentationRoot); 
 
 				knownInstrumentedClasses.add(clazz);
 			

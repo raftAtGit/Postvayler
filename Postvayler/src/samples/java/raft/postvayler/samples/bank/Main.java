@@ -192,26 +192,34 @@ public class Main {
 		bank.addCustomer((Customer) Class.forName("raft.postvayler.samples.bank.secret.SecretCustomer").newInstance());
 		
 		// add some initial customers and accounts and also owner
-		bank.setOwner(new RichPerson("kingpin"));
+		bank.getOwner().setName("richie rich");
+		
+		if (bank.getSister() == null) {
+			bank.setSister(new Bank());
+			bank.getSister().getOwner().setName("even more rich");
+		}
 		
 		for (int i = 0; i < 50 + random.nextInt(50); i++) {
 			Customer customer = bank.createCustomer("initial:" + random.nextInt());
 			customer.addAccount(bank.createAccount());
+			System.out.print('.');
 		}
 		
-		
-		int count = 1000 + random.nextInt(1000);
+		int count = 100 + random.nextInt(100);
 		
 		for (int action = 0; action < count; action++) {
 			
 			int next = random.nextInt(BANK_ACTIONS);
 			doSomethingRandomWithBank(bank, next, random);
 		}
+		System.out.println();
 	}
 	
 	static final int BANK_ACTIONS = 19;
 
 	private static void doSomethingRandomWithBank(Bank bank, int action, Random random) throws Exception {
+		System.out.print('.');
+		
 		switch (action) {
 			 case 0: {
 				 // create a customer via bank
@@ -282,10 +290,29 @@ public class Main {
 				 }
 				 break;
 			 	}
+			 // create a RichPerson which will throw exception at Person constructor
+			 case 9: {
+				 try {
+					 new RichPerson("HellBoy");
+				 } catch (IllegalArgumentException e) {}
+				 break;
+			 }
+			 // create a RichPerson which will throw exception at RichPerson constructor
+			 case 10: {
+				 try {
+					 new RichPerson("Dracula");
+				 } catch (IllegalArgumentException e) {}
+				 break;
+			 }
+			 case 11: {
+				 RichPerson rich = bank.getOwner(); 
+				 if (rich != null) {
+					 rich.getSister().setName("sister:" + random.nextInt());
+					 rich.getBrother().setName("brother:" + random.nextInt());
+				 }
+				 break;
+			 }
 			 // transfer some money
-			 case 9: 
-			 case 10: 
-			 case 11: 
 			 case 12: {
 				 List<Account> accounts = bank.getAccounts();
 				 if (accounts.size() < 2)

@@ -40,12 +40,12 @@ public class Utils {
 	}
 	
 	/** replaces {@link Reference} arguments with {@link IsPersistent} */
-	static Object[] dereferenceArguments(IsRoot root, Object[] arguments) {
+	static Object[] dereferenceArguments(RootHolder root, Object[] arguments) {
 		for (int i = 0; i < arguments.length; i++) {
 			Object arg = arguments[i];
 			if (arg instanceof Reference) {
 				Long id = ((Reference)arg).id;
-				IsPersistent persistent = root.__postvayler_get(id);
+				IsPersistent persistent = root.getObject(id);
 				if (persistent == null)
 					throw new Error("couldnt get object from the pool, id: " + id); // we throw error to halt Prevayler
 				arguments[i] = persistent;
@@ -55,7 +55,7 @@ public class Utils {
 	}
 	
 	public static String identityCode(Object object) {
-		return object.getClass().getName() + "@" + System.identityHashCode(object);
+		return object.getClass().getName() + "@" + Integer.toHexString(System.identityHashCode(object));
 	}
 	
     static String[] getTypeNames(Class<?>[] types) {

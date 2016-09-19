@@ -24,36 +24,53 @@ public class _Account implements Serializable, IsPersistent {
 	private _Customer owner;
 	private int balance = 0;
 	
-	@_Injected protected Long __postvayler_Id;
+	@_Injected private Long __postvayler_Id;
 	
 	_Account(int id) throws Exception {
-		this.id = id;
-		
 		// @_Injected
-		// a subclass constructor is running, let him do the job
-		if (getClass() != _Account.class)
-			return;
-		
-		if (__Postvayler.isBound()) { 
-			Context context = __Postvayler.getInstance();
-			
-			if (context.inTransaction()) {
-				this.__postvayler_Id = context.root.__postvayler_put(this);
-			} else {
-			
-				context.setInTransaction(true);
-				try {
-					this.__postvayler_Id = context.prevayler.execute(new ConstructorTransaction(
-							this, new ConstructorCall<IsPersistent>(_Account.class, new Class[0] ), new Object[0]));
-				} finally {
-					context.setInTransaction(false);
+		try {
+			if (__Postvayler.isBound()) { 
+				Context context = __Postvayler.getInstance();
+				
+				if (context.isInTransaction()) {
+					this.__postvayler_Id = context.root.putObject(this);
+				} else {
+					//System.out.println("starting constructor transaction @" + _Account.class + " for " + Utils.identityCode(this));
+					context.setInTransaction(true);
+					try {
+						ConstructorCall<? extends IsPersistent> constructorCall = context.getConstructorCall(); 
+						if (constructorCall == null) {
+							if (getClass() != _Account.class)
+								throw new Error("subclass constructor " + getClass().getName() + " is running but there is no stored constructorCall");
+							
+							constructorCall = new ConstructorCall<_Account>(
+									_Account.class, new Class[]{int.class}, new Object[]{id});
+						}
+						this.__postvayler_Id = context.prevayler.execute(new ConstructorTransaction(this, constructorCall));
+					} finally {
+						context.setInTransaction(false);
+						context.setConstructorCall(null);
+						System.out.println("ending transaction: " + this);
+					}
 				}
+			} else if (Context.isInRecovery()) {
+				this.__postvayler_Id = Context.getRecoveryRoot().putObject(this);
+			} else {
+				// no Postvayler, object will not have an id
 			}
-		} else if (Context.isInRecovery()) {
-			this.__postvayler_Id = Context.getRecoveryRoot().__postvayler_put(this);
-		} else {
-			// no Postvayler, object will not have an id
+			
+			this.id = id;
+		} catch (Exception e) {
+			if (__Postvayler.isBound()) {
+				__Postvayler.getInstance().maybeEndTransaction(this);
+			}
+			throw e;
+		} finally {
+			if (__Postvayler.isBound()) {
+				__Postvayler.getInstance().maybeEndTransaction(this, _Account.class);
+			}
 		}
+			
 	}
 	
 	public int getBalance() {
@@ -84,7 +101,7 @@ public class _Account implements Serializable, IsPersistent {
 		}
 		
 		Context context = __Postvayler.getInstance();
-		if (context.inTransaction()) { 
+		if (context.isInTransaction()) { 
 			__postvayler__setName(name);
 			return;
 		}
@@ -111,7 +128,7 @@ public class _Account implements Serializable, IsPersistent {
 		}
 		
 		Context context = __Postvayler.getInstance();
-		if (context.inTransaction()) { 
+		if (context.isInTransaction()) { 
 			__postvayler__deposit(amount);
 			return;
 		}
@@ -140,7 +157,7 @@ public class _Account implements Serializable, IsPersistent {
 		}
 		
 		Context context = __Postvayler.getInstance();
-		if (context.inTransaction()) { 
+		if (context.isInTransaction()) { 
 			__postvayler__withdraw(amount);
 			return;
 		}

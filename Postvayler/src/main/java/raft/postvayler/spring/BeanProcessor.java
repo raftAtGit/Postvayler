@@ -24,6 +24,7 @@ import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
 
 import raft.postvayler.Postvayler;
+import raft.postvayler.impl.RootHolder;
 
 /** Registers Postvayler root bean into Spring's {@link BeanDefinitionRegistry} so it can be {@link Autowired}. */
 class BeanProcessor implements BeanDefinitionRegistryPostProcessor, BeanPostProcessor {
@@ -69,12 +70,13 @@ class BeanProcessor implements BeanDefinitionRegistryPostProcessor, BeanPostProc
 		
 		try {
 			// TODO configure Postvayler here. rollback support (food-tester) etc.
-			PrevaylerFactory<Object> factory = new PrevaylerFactory<Object>();
-			factory.configurePrevalentSystem(bean);
+			PrevaylerFactory<RootHolder> factory = new PrevaylerFactory<RootHolder>();
+
+			//factory.configurePrevalentSystem(new RootHolder());
 			factory.configurePrevalenceDirectory("".equals(enablePostvayler.persistDir()) 
 					? "persist/" + bean.getClass().getName() : enablePostvayler.persistDir());
 			
-			return new Postvayler<Object>(bean)
+			return new Postvayler<Object>((Class)bean.getClass())
 					.setPrevaylerFactory(factory)
 					.create();
 			

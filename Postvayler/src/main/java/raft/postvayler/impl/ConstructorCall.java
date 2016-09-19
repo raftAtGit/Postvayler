@@ -12,29 +12,34 @@ public class ConstructorCall<T> implements Serializable {
 
     private final String className;
     private final String[] argTypes;
+	private final Object[] arguments;
     
-    public ConstructorCall(java.lang.reflect.Constructor<T> constructor) {
-    	this(constructor.getDeclaringClass().getName(), Utils.getTypeNames(constructor.getParameterTypes()));
-    }
-
-    public ConstructorCall(Class<? extends IsPersistent> clazz, Class<?>[] argTypes) {
-    	this(clazz.getName(), Utils.getTypeNames(argTypes));
+    public ConstructorCall(Class<? extends T> clazz, Class<?>[] argTypes, Object[] arguments) {
+    	this(clazz.getName(), Utils.getTypeNames(argTypes), arguments);
     }
     
-    public ConstructorCall(String className, String[] argTypes) {
+    public ConstructorCall(String className, String[] argTypes, Object[] arguments) {
 		this.className = className;
         this.argTypes = argTypes;
+		this.arguments = Utils.referenceArguments(arguments);
 	}
 
+    public T newInstance(RootHolder root) throws Exception {
+		Constructor<T> cons = getJavaConstructor();
+		cons.setAccessible(true);
+		return cons.newInstance(Utils.dereferenceArguments(root, arguments));
+    }
+    
     /** reconstructs the wrapped java Constructor */
     @SuppressWarnings("unchecked")
-	public java.lang.reflect.Constructor<IsPersistent> getJavaConstructor() throws Exception {
+	Constructor<T> getJavaConstructor() throws Exception {
     	
         Class<?> [] args = new Class[argTypes.length];
         for (int i = 0; i < args.length; ++i) {
             args[i] = Utils.getClass(argTypes[i]);
         }
-        return (Constructor<IsPersistent>) Class.forName(className).getDeclaredConstructor(args);
+        return (Constructor<T>) Class.forName(className).getDeclaredConstructor(args);
     }
+    
 
 }

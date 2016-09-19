@@ -72,6 +72,10 @@ class Node {
 		return s;
 	}
 
+	boolean isTopLevel() {
+		return (parent == null);
+	}
+	
 	Node getTopLevelNode() {
 		Node topLevel = this;
 		while (topLevel.parent != null) {

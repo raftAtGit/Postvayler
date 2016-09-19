@@ -19,16 +19,17 @@ import org.prevayler.TransactionWithQuery;
  * @see MethodTransaction
  * @see MethodTransactionWithQuery
  * */
-public class GCPreventingPrevayler implements Prevayler<IsRoot> {
+@SuppressWarnings("rawtypes")
+public class GCPreventingPrevayler implements Prevayler<RootHolder> {
 
-	final Prevayler<IsRoot> delegate;
-	final Prevayler<IsRoot> dummy = new NullPrevayler(); 
+	final Prevayler<RootHolder> delegate;
+	final Prevayler<RootHolder> dummy = new NullPrevayler(); 
 	
-	public GCPreventingPrevayler(Prevayler<IsRoot> delegate) {
+	public GCPreventingPrevayler(Prevayler<RootHolder> delegate) {
 		this.delegate = delegate;
 	}
 
-	public IsRoot prevalentSystem() {
+	public RootHolder prevalentSystem() {
 		return delegate.prevalentSystem();
 	}
 
@@ -37,13 +38,13 @@ public class GCPreventingPrevayler implements Prevayler<IsRoot> {
 	}
 
 	@Override
-	public void execute(Transaction<? super IsRoot> transaction) {
+	public void execute(Transaction<? super RootHolder> transaction) {
 		delegate.execute(transaction);
 		dummy.execute(transaction);
 	}
 	
 	@Override
-	public <R> R execute(TransactionWithQuery<? super IsRoot, R> transactionWithQuery) throws Exception {
+	public <R> R execute(TransactionWithQuery<? super RootHolder, R> transactionWithQuery) throws Exception {
 		R result = delegate.execute(transactionWithQuery);
 		dummy.execute(transactionWithQuery);
 		return result;
@@ -51,14 +52,14 @@ public class GCPreventingPrevayler implements Prevayler<IsRoot> {
 
 
 	@Override
-	public <R> R execute(Query<? super IsRoot, R> sensitiveQuery) throws Exception {
+	public <R> R execute(Query<? super RootHolder, R> sensitiveQuery) throws Exception {
 		R result = delegate.execute(sensitiveQuery);
 		dummy.execute(sensitiveQuery);
 		return result;
 	}
 
 	@Override
-	public <R> R execute(SureTransactionWithQuery<? super IsRoot, R> sureTransactionWithQuery) {
+	public <R> R execute(SureTransactionWithQuery<? super RootHolder, R> sureTransactionWithQuery) {
 		R result = delegate.execute(sureTransactionWithQuery);
 		dummy.execute(sureTransactionWithQuery);
 		return result;
@@ -75,10 +76,10 @@ public class GCPreventingPrevayler implements Prevayler<IsRoot> {
 	}
 	
 	/** A Prevayler which does nothing :) */
-	private class NullPrevayler implements Prevayler<IsRoot> {
+	private class NullPrevayler implements Prevayler<RootHolder> {
 
 		@Override
-		public IsRoot prevalentSystem() {
+		public RootHolder prevalentSystem() {
 			return null;
 		}
 
@@ -88,21 +89,21 @@ public class GCPreventingPrevayler implements Prevayler<IsRoot> {
 		}
 
 		@Override
-		public void execute(Transaction<? super IsRoot> transaction) {
+		public void execute(Transaction<? super RootHolder> transaction) {
 		}
 
 		@Override
-		public <R> R execute(Query<? super IsRoot, R> sensitiveQuery) throws Exception {
+		public <R> R execute(Query<? super RootHolder, R> sensitiveQuery) throws Exception {
 			return null;
 		}
 
 		@Override
-		public <R> R execute(TransactionWithQuery<? super IsRoot, R> transactionWithQuery) throws Exception {
+		public <R> R execute(TransactionWithQuery<? super RootHolder, R> transactionWithQuery) throws Exception {
 			return null;
 		}
 
 		@Override
-		public <R> R execute(SureTransactionWithQuery<? super IsRoot, R> sureTransactionWithQuery) {
+		public <R> R execute(SureTransactionWithQuery<? super RootHolder, R> sureTransactionWithQuery) {
 			return null;
 		}
 

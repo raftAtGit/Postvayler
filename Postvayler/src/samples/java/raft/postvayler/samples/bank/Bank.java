@@ -28,7 +28,10 @@ public class Bank extends Company {
 	private int lastCustomerId = 1;
 	private int lastAccountId = 1;
 	
-	public Bank() {}
+	private Bank sister;
+	
+	public Bank() {
+	}
 
 	@Persist
 	public Customer createCustomer(String name) {
@@ -95,4 +98,16 @@ public class Bank extends Company {
 	public Account getAccount(int id) {
 		return accounts.get(id);
 	}
+
+	@Synch
+	public Bank getSister() {
+		return sister;
+	}
+
+	@Persist
+	public void setSister(Bank sister) {
+		this.sister = sister;
+	}
+	
+	
 }

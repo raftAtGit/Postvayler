@@ -2,6 +2,6 @@
 
 // 0: root class name
 	 
-	public __Postvayler(org.prevayler.Prevayler prevayler, {0} root) '{'
-		super(prevayler, (IsRoot) root);
-	}
+public __Postvayler(org.prevayler.Prevayler prevayler, RootHolder root) '{'
+	super(prevayler, root);
+}
