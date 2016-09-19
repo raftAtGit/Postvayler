@@ -29,10 +29,6 @@ Quite a Plain Old Java Object, isn't it? Run the **Postvayler compiler** after *
 ```
 Library library = Postvayler.create(Library.class);
 ```
-or 
-```
-Library library = Postvayler.create(new Library());
-```
 Now, add as many books as you want to your library, kill your program and when you restart it the previously added books will be in your library.
 
 Note, the call to Postvayler.create(..) is only required for the root of object graph. All other objects are created in regular way, either with the *new* oprerator or via factories, builders whatever. As it is, Postvayler is quite flexible, *other objects* may be other instances of *root* class, subclasses/superclasses of it, or instances of a completely different class hierarchy.
