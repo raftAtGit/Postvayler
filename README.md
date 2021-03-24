@@ -3,7 +3,7 @@ Postvayler
 
 ### Transparent Persistence for POJO's (Plain Old Java Objects)
 
-*This library is still under development. At the moment, it's at the 'Proof of Concept' state. All contributions and feedback are welcome. Have a look at [todo list](Postvayler/doc/todo.txt) for tasks waiting.*
+*This library is deprecated. Please use the successor of this library [Chainvayler](https://github.com/raftAtGit/Chainvayler) with same and more functionality.*
 
 ---
 ### Introduction
